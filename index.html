@@ -1297,6 +1297,11 @@ function salvarServico(){
     const itens = [...document.querySelectorAll('#mQualidade input')];
     if(itens.some(i=>!i.checked)){ toast('✅ Marque todos os itens do checklist de qualidade para concluir.'); return; }
   }
+  if($('mStatus').value==='CONCLUIDO' && !(+$('mTempoReal').value > 0)){
+    toast('⏱ Para concluir, informe o TEMPO UTILIZADO (dias) — é ele que dá a sua produção e produtividade no relatório.');
+    try{ $('mTempoReal').focus(); }catch(e){}
+    return;
+  }
   if($('mStatus').value==='CONCLUIDO' && temAtraso($('mDias').value, $('mTempoReal').value) && !$('mMotivo').value){
     mostrarAtraso();
     toast('⏰ Concluiu acima do previsto — escolha o motivo do atraso.'); return;
@@ -1985,33 +1990,38 @@ function desenharCalendario(){
 function desenharRelatorio(){
   const mes = $('relMes').value; // 'AAAA-MM' ou ''
   const todos = listaOrdenada().filter(s=> !mes || (s.data||'').startsWith(mes) || (s.fim||'').startsWith(mes));
-  const concl = todos.filter(s=> s.status==='CONCLUIDO' && +s.tempoReal>0);
+  const concl = todos.filter(s=> s.status==='CONCLUIDO');
+  const comTempo = concl.filter(s=> +s.tempoReal > 0);
+  const semTempo = concl.length - comTempo.length;
   const m2Concl = concl.reduce((t,s)=>t+(+s.metragem||0),0);
-  const diasPrev = concl.reduce((t,s)=>t+(+s.dias||0),0);
-  const diasReal = concl.reduce((t,s)=>t+(+s.tempoReal||0),0);
-  const prodMedia = diasReal>0? Math.round(m2Concl/diasReal*10)/10 : 0;
+  const m2Tempo = comTempo.reduce((t,s)=>t+(+s.metragem||0),0);
+  const diasPrev = comTempo.reduce((t,s)=>t+(+s.dias||0),0);
+  const diasReal = comTempo.reduce((t,s)=>t+(+s.tempoReal||0),0);
+  const prodMedia = diasReal>0? Math.round(m2Tempo/diasReal*10)/10 : 0;
   const efic = diasReal>0 && CFG.capacidade>0 ? Math.round(prodMedia/CFG.capacidade*100) : 0;
   $('kpisRel').innerHTML = `
     <div class="kpi azul"><div class="n">${concl.length}</div><div class="t">Serviços concluídos${mes? ' no mês':''}</div></div>
-    <div class="kpi"><div class="n">${fmtNum(m2Concl)} m²</div><div class="t">Metragem produzida</div></div>
-    <div class="kpi"><div class="n">${fmtNum(diasPrev)}d → ${fmtNum(diasReal)}d</div><div class="t">Previsto → realizado</div></div>
-    <div class="kpi ${diasReal<=diasPrev?'verde':'verm'}"><div class="n">${diasPrev? (diasReal<=diasPrev?'✔':'+'+fmtNum(diasReal-diasPrev)+'d') : '—'}</div><div class="t">${diasReal<=diasPrev? 'Dentro do previsto':'Acima do previsto'}</div></div>
-    <div class="kpi ${efic>=90?'verde':efic>=70?'amarelo':'verm'}"><div class="n">${prodMedia? fmtNum(prodMedia):'—'}</div><div class="t">m²/dia real (${efic}% da capacidade)</div></div>`;
+    <div class="kpi verde"><div class="n">${fmtNum(m2Concl)} m²</div><div class="t">Metragem produzida</div></div>
+    <div class="kpi"><div class="n">${diasReal>0? fmtNum(diasPrev)+'d → '+fmtNum(diasReal)+'d' : '—'}</div><div class="t">Previsto → realizado${semTempo? ' ('+semTempo+' sem tempo informado)':''}</div></div>
+    <div class="kpi ${diasReal<=diasPrev?'verde':'verm'}"><div class="n">${diasPrev && diasReal>0? (diasReal<=diasPrev?'✔':'+'+fmtNum(diasReal-diasPrev)+'d') : '—'}</div><div class="t">${diasReal>0? (diasReal<=diasPrev? 'Dentro do previsto':'Acima do previsto') : 'Sem tempos informados'}</div></div>
+    <div class="kpi ${prodMedia? (efic>=90?'verde':efic>=70?'amarelo':'verm') : 'amarelo'}"><div class="n">${prodMedia? fmtNum(prodMedia):'—'}</div><div class="t">${prodMedia? 'm²/dia real ('+efic+'% da capacidade)' : 'm²/dia real — informe o tempo utilizado nos serviços'}</div></div>`;
 
-  // por tipo
+  // por tipo (produção conta tudo; tempo e produtividade só do que tem tempo informado)
   const porTipo = {};
   concl.forEach(s=>{
     const k = s.tipo||'?';
-    const o = porTipo[k] = porTipo[k] || {n:0, m2:0, prev:0, real:0};
-    o.n++; o.m2 += +s.metragem||0; o.prev += +s.dias||0; o.real += +s.tempoReal||0;
+    const o = porTipo[k] = porTipo[k] || {n:0, m2:0, prev:0, real:0, m2t:0, ct:0};
+    o.n++; o.m2 += +s.metragem||0; o.prev += +s.dias||0;
+    if(+s.tempoReal > 0){ o.real += +s.tempoReal; o.m2t += +s.metragem||0; o.ct++; }
   });
   const linhas = Object.keys(porTipo).map(k=>{
     const o = porTipo[k];
-    const prod = o.real>0? Math.round(o.m2/o.real*10)/10 : 0;
-    const dif = Math.round((o.real-o.prev)*10)/10;
-    return `<tr><td><b>${esc(nomeTipo(k))}</b></td><td>${o.n}</td><td>${fmtNum(o.m2)} m²</td><td>${fmtNum(o.prev)}d</td><td>${fmtNum(o.real)}d</td>
-      <td>${dif>0? '<span class="tag verm">+'+fmtNum(dif)+'d</span>' : dif<0? '<span class="tag verde">'+fmtNum(dif)+'d</span>' : '<span class="tag verde">no prazo</span>'}</td>
-      <td><b>${fmtNum(prod)}</b> m²/dia</td></tr>`;
+    const prod = o.real>0? Math.round(o.m2t/o.real*10)/10 : 0;
+    const dif = (o.ct===o.n && o.real>0)? Math.round((o.real-o.prev)*10)/10 : null;
+    return `<tr><td><b>${esc(nomeTipo(k))}</b></td><td>${o.n}</td><td>${fmtNum(o.m2)} m²</td><td>${fmtNum(o.prev)}d</td>
+      <td>${o.ct? fmtNum(o.real)+'d'+(o.ct<o.n? ' <small class="sub">('+o.ct+' de '+o.n+')</small>':'') : '—'}</td>
+      <td>${dif==null? '<span class="tag cinza">falta tempo</span>' : dif>0? '<span class="tag verm">+'+fmtNum(dif)+'d</span>' : dif<0? '<span class="tag verde">'+fmtNum(dif)+'d</span>' : '<span class="tag verde">no prazo</span>'}</td>
+      <td>${prod? '<b>'+fmtNum(prod)+'</b> m²/dia' : '—'}</td></tr>`;
   }).join('');
   $('tbTipos').innerHTML = `<tr><th>Tipo</th><th>Qtd</th><th>Metragem</th><th>Previsto</th><th>Realizado</th><th>Diferença</th><th>Produtividade</th></tr>` +
     (linhas || '<tr><td colspan="7" class="vazio">Sem serviços concluídos ainda.</td></tr>');
@@ -2030,23 +2040,24 @@ function desenharRelatorio(){
       return `<tr><td><b>${k==='SEM_REGISTRO'? '(sem motivo registrado)' : esc(nomeMotivo(k))}</b></td><td>${o.n}</td><td><span class="tag verm">+${fmtNum(Math.round(o.dias*10)/10)}d</span></td><td>${fmtNum(o.m2)} m²</td></tr>`;
     }).join('') || '<tr><td colspan="4" class="vazio">Nenhum atraso no período. 👏</td></tr>');
 
-  // 📊 mês a mês (sempre geral)
+  // 📊 mês a mês (sempre geral; produção conta todo concluído)
   const porMes = {};
-  Object.values(SERVICOS).filter(s=> !s.excluido && s.status==='CONCLUIDO' && +s.tempoReal>0).forEach(s=>{
+  Object.values(SERVICOS).filter(s=> !s.excluido && s.status==='CONCLUIDO').forEach(s=>{
     const k = (s.fim || s.data || '').slice(0,7); if(!k) return;
-    const o = porMes[k] = porMes[k] || {m2:0, dias:0};
-    o.m2 += +s.metragem||0; o.dias += +s.tempoReal||0;
+    const o = porMes[k] = porMes[k] || {m2:0, dias:0, m2t:0};
+    o.m2 += +s.metragem||0;
+    if(+s.tempoReal > 0){ o.dias += +s.tempoReal; o.m2t += +s.metragem||0; }
   });
   const meses = Object.keys(porMes).sort().slice(-6);
   const maxM2 = Math.max(1, ...meses.map(k=>porMes[k].m2));
   $('relMeses').innerHTML = meses.map(k=>{
     const o = porMes[k];
-    const prod = o.dias>0? Math.round(o.m2/o.dias*10)/10 : 0;
+    const prod = o.dias>0? Math.round(o.m2t/o.dias*10)/10 : 0;
     const [aa,mm] = k.split('-');
     return `<div style="display:flex; align-items:center; gap:10px; margin-bottom:8px">
       <span style="min-width:56px; font-weight:800; font-size:13px">${mm}/${aa.slice(2)}</span>
       <div style="flex:1; background:#eef1f6; border-radius:8px; height:24px; overflow:hidden"><div style="height:100%; width:${Math.max(2,Math.round(o.m2/maxM2*100))}%; background:var(--laranja)"></div></div>
-      <span style="min-width:160px; font-size:12.5px; text-align:right"><b>${fmtNum(o.m2)} m²</b> · ${fmtNum(prod)} m²/dia</span>
+      <span style="min-width:160px; font-size:12.5px; text-align:right"><b>${fmtNum(o.m2)} m²</b> · ${prod? fmtNum(prod)+' m²/dia' : 'sem tempo informado'}</span>
     </div>`;
   }).join('') || '<div class="vazio">Ainda não tem mês com serviço concluído.</div>';
 
@@ -2075,7 +2086,7 @@ function desenharRelatorio(){
   $('tbConcluidos').innerHTML = `<tr><th>Lona</th><th>Tipo</th><th>Montagem</th><th>m²</th><th>Equipe</th><th>Prev.</th><th>Real</th><th>m²/dia</th></tr>` +
     (concl.map(s=>{
       const p = produtividade(s);
-      return `<tr><td>${esc(s.lona)}</td><td>${esc(nomeTipo(s.tipo))}</td><td>${esc(s.montagem)}</td><td>${fmtNum(s.metragem)}</td><td>${esc(equipesDoServico(s).map(x=>(CFG.equipes.find(e=>e.id===x)||{}).nome||'?').join(' + '))}</td><td>${fmtNum(s.dias)}d</td><td>${fmtNum(s.tempoReal)}d</td><td><b>${p!=null?fmtNum(p):'—'}</b></td></tr>`;
+      return `<tr><td>${esc(s.lona)}</td><td>${esc(nomeTipo(s.tipo))}</td><td>${esc(s.montagem)}</td><td>${fmtNum(s.metragem)}</td><td>${esc(equipesDoServico(s).map(x=>(CFG.equipes.find(e=>e.id===x)||{}).nome||'?').join(' + '))}</td><td>${fmtNum(s.dias)}d</td><td>${+s.tempoReal>0? fmtNum(s.tempoReal)+'d' : '<span class="tag amarelo">falta</span>'}</td><td><b>${p!=null?fmtNum(p):'—'}</b></td></tr>`;
     }).join('') || '<tr><td colspan="8" class="vazio">Sem serviços concluídos ainda.</td></tr>');
 }
 
