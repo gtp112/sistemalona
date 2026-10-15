@@ -232,22 +232,27 @@ table.tb td{padding:8px; border-bottom:1px solid var(--line)}
   <div class="box">
     <h2><span id="mTitulo">Novo serviço</span> <button class="fechar" onclick="fecharForm()">✕</button></h2>
 
-    <h3 style="margin-top:14px">1 · Lona utilizada</h3>
+    <div class="linha" style="margin-top:12px">
+      <button type="button" class="btn p" id="btnModoR" onclick="setModo('REAJUSTE')">🔁 Reajuste / reaproveitamento</button>
+      <button type="button" class="btn c" id="btnModoN" onclick="setModo('LONA_NOVA')">🆕 Produção de lona nova</button>
+    </div>
+
+    <h3 style="margin-top:14px" id="mTit1">1 · Lona utilizada</h3>
     <div class="grid g2">
       <label class="f">Identificação da lona *<input id="mLona" placeholder="ex.: LONA PIRAMIDAL 10x10 — Nº 042"></label>
-      <label class="f">Aplicação prevista (de onde a lona veio / para que era destinada) *<input id="mAplicacao" placeholder="ex.: Tenda 10x10 — estoque galpão"></label>
+      <label class="f" id="mBoxAplicacao">Aplicação prevista (de onde a lona veio / para que era destinada) *<input id="mAplicacao" placeholder="ex.: Tenda 10x10 — estoque galpão"></label>
     </div>
-    <div class="grid g3" style="margin-top:10px">
+    <div class="grid g3" style="margin-top:10px" id="mBoxOriginal">
       <label class="f">Medida original — largura (m)<input id="mOrigL" type="number" step="0.01" min="0" oninput="calcM2('Orig')"></label>
       <label class="f">Medida original — comprimento (m)<input id="mOrigC" type="number" step="0.01" min="0" oninput="calcM2('Orig')"></label>
       <label class="f">Medida original (m²)<input id="mOrigM2" type="number" step="0.01" min="0"></label>
     </div>
 
-    <h3>2 · Reajuste e destino</h3>
+    <h3 id="mTit2">2 · Reajuste e destino</h3>
     <div class="grid g3">
-      <label class="f">Nova medida — largura (m)<input id="mNovaL" type="number" step="0.01" min="0" oninput="calcM2('Nova')"></label>
-      <label class="f">Nova medida — comprimento (m)<input id="mNovaC" type="number" step="0.01" min="0" oninput="calcM2('Nova')"></label>
-      <label class="f">Nova medida (m²)<input id="mNovaM2" type="number" step="0.01" min="0" oninput="sugerirMetragem()"></label>
+      <label class="f"><span class="lblNova">Nova medida</span> — largura (m)<input id="mNovaL" type="number" step="0.01" min="0" oninput="calcM2('Nova')"></label>
+      <label class="f"><span class="lblNova">Nova medida</span> — comprimento (m)<input id="mNovaC" type="number" step="0.01" min="0" oninput="calcM2('Nova')"></label>
+      <label class="f"><span class="lblNova">Nova medida</span> (m²)<input id="mNovaM2" type="number" step="0.01" min="0" oninput="sugerirMetragem()"></label>
     </div>
     <div class="grid g2" style="margin-top:10px">
       <label class="f">Montagem que será atendida *<input id="mMontagem" placeholder="ex.: Evento Casa Shopping — Tenda 8x8"></label>
@@ -263,8 +268,8 @@ table.tb td{padding:8px; border-bottom:1px solid var(--line)}
     <div class="previsao-box" id="mPrevisaoBox" style="margin-top:10px">Informe a metragem e o tipo para calcular a previsão.</div>
     <label class="f" style="margin-top:10px">Dias previstos (pode ajustar na mão)<input id="mDias" type="number" step="0.5" min="0"></label>
 
-    <h3>4 · Reposição da lona</h3>
-    <label class="chk"><input type="checkbox" id="mRepoPrecisa" onchange="mostrarRepo()"> Precisa produzir uma lona nova para repor a aplicação prevista</label>
+    <h3 id="mTit4">4 · Reposição da lona</h3>
+    <label class="chk" id="mBoxRepoChk"><input type="checkbox" id="mRepoPrecisa" onchange="mostrarRepo()"> Precisa produzir uma lona nova para repor a aplicação prevista</label>
     <div id="mRepoCampos" class="grid g2" style="display:none">
       <label class="f">Prazo para a reposição ficar pronta<input id="mRepoPrazo" type="date"></label>
       <label class="f">Situação da reposição<select id="mRepoStatus">
@@ -274,7 +279,7 @@ table.tb td{padding:8px; border-bottom:1px solid var(--line)}
       </select></label>
     </div>
 
-    <h3>5 · Execução (preencher quando rodar / terminar)</h3>
+    <h3 id="mTit5">5 · Execução (preencher quando rodar / terminar)</h3>
     <div class="grid g3">
       <label class="f">Status<select id="mStatus">
         <option value="PROGRAMADO">Programado</option>
@@ -298,10 +303,10 @@ table.tb td{padding:8px; border-bottom:1px solid var(--line)}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-/* =================== SUPABASE (projeto novo da Central) =================== */
+/* =================== SUPABASE (projeto próprio do Reajuste de Lonas) =================== */
 const NUVEM = {
-  url: 'https://isnczssssikqjukpecsf.supabase.co',
-  key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlzbmN6c3Nzc2lrcWp1a3BlY3NmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzNzQ0NDYsImV4cCI6MjEwNjk1MDQ0Nn0.k4VNcRSlP6rrhw22zgDnWbZkZw-eaTjt2iZccsC703E'
+  url: 'https://bnhosipzlwyrhjyfjjcc.supabase.co',
+  key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJuaG9zaXB6bHd5cmhqeWZqamNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwODk2ODgsImV4cCI6MjEwNzY2NTY4OH0.hOLK4KShExrq3gzLhXwGmiAAmaHz2qYHT9SMgVRemjU'
 };
 const TAB = 'lonas_reajustes';
 const TABCFG = 'lonas_reajustes_config';
@@ -312,6 +317,7 @@ const LS = 'reajuste_lonas_v1';
 let SERVICOS = {};   // id -> registro
 let CFG = cfgPadrao();
 let editandoId = null;
+let modoAtual = 'REAJUSTE';   // REAJUSTE (reaproveitamento) ou LONA_NOVA (produção de lona nova)
 
 function cfgPadrao(){
   return {
@@ -378,6 +384,7 @@ function desvioPrazo(s){ // + = levou mais que o previsto
 }
 function precisaAlertaReposicao(s){
   // lona desviada: aplicação prevista diferente da montagem atendida, sem reposição programada
+  if(s.modo === 'LONA_NOVA') return false;   // produção de lona nova não desvia lona de ninguém
   const a = (s.aplicacao||'').trim().toUpperCase();
   const m = (s.montagem||'').trim().toUpperCase();
   if(!a || !m || a === m) return false;
@@ -512,7 +519,26 @@ function atualizarPrevisao(){
   }
 }
 function mostrarRepo(){
-  $('mRepoCampos').style.display = $('mRepoPrecisa').checked ? 'grid' : 'none';
+  $('mRepoCampos').style.display = (modoAtual!=='LONA_NOVA' && $('mRepoPrecisa').checked) ? 'grid' : 'none';
+}
+function setModo(m, mudarTipo){
+  modoAtual = m;
+  const nova = m === 'LONA_NOVA';
+  $('btnModoR').className = 'btn ' + (nova? 'c':'p');
+  $('btnModoN').className = 'btn ' + (nova? 'p':'c');
+  // lona nova: sem medida original, sem aplicação prevista e sem bloco de reposição
+  $('mBoxAplicacao').style.display = nova? 'none':'flex';
+  $('mBoxOriginal').style.display = nova? 'none':'grid';
+  $('mTit4').style.display = nova? 'none':'block';
+  $('mBoxRepoChk').style.display = nova? 'none':'flex';
+  $('mTit1').textContent = nova? '1 · Lona a produzir' : '1 · Lona utilizada';
+  $('mTit2').textContent = nova? '2 · Medida e destino' : '2 · Reajuste e destino';
+  $('mTit5').textContent = (nova? '4':'5') + ' · Execução (preencher quando rodar / terminar)';
+  document.querySelectorAll('.lblNova').forEach(e=> e.textContent = nova? 'Medida da lona' : 'Nova medida');
+  $('mLona').placeholder = nova? 'ex.: LONA PIRAMIDAL 10x10 — NOVA' : 'ex.: LONA PIRAMIDAL 10x10 — Nº 042';
+  if(mudarTipo !== false && nova && (CFG.tipos||[]).some(t=>t.id==='CONFECCAO')){ $('mTipo').value = 'CONFECCAO'; }
+  mostrarRepo();
+  atualizarPrevisao();
 }
 function abrirForm(id){
   editandoId = id || null;
@@ -538,7 +564,7 @@ function abrirForm(id){
   $('mFim').value = s&&s.fim||'';
   $('mTempoReal').value = s&&s.tempoReal||'';
   $('mObs').value = s&&s.obs||'';
-  mostrarRepo();
+  setModo(s? (s.modo||'REAJUSTE') : 'REAJUSTE', false);
   if(!s) $('mPrevisaoBox').textContent = 'Informe a metragem e o tipo para calcular a previsão.';
   else atualizarPrevisao();
   if(s && s.dias) $('mDias').value = s.dias; // respeita ajuste manual
@@ -556,10 +582,12 @@ function salvarServico(){
   const id = editandoId || uid();
   const antes = SERVICOS[id] || {};
   const precisa = $('mRepoPrecisa').checked;
+  const nova = modoAtual === 'LONA_NOVA';
   const s = {
     id,
-    lona, aplicacao: $('mAplicacao').value.trim(),
-    origL:+$('mOrigL').value||null, origC:+$('mOrigC').value||null, origM2:+$('mOrigM2').value||null,
+    modo: modoAtual,
+    lona, aplicacao: nova? '' : $('mAplicacao').value.trim(),
+    origL:nova? null : +$('mOrigL').value||null, origC:nova? null : +$('mOrigC').value||null, origM2:nova? null : +$('mOrigM2').value||null,
     novaL:+$('mNovaL').value||null, novaC:+$('mNovaC').value||null, novaM2:+$('mNovaM2').value||null,
     montagem,
     data: $('mData').value,
@@ -567,7 +595,7 @@ function salvarServico(){
     metragem: round2(metragem),
     equipe: $('mEquipe').value,
     dias: +$('mDias').value || calcDiasPrevistos(metragem, $('mTipo').value, CFG),
-    repo: { precisa, prazo: precisa? $('mRepoPrazo').value : '', status: precisa? $('mRepoStatus').value : '' },
+    repo: nova? { precisa:false, prazo:'', status:'' } : { precisa, prazo: precisa? $('mRepoPrazo').value : '', status: precisa? $('mRepoStatus').value : '' },
     status: $('mStatus').value,
     fim: $('mFim').value || '',
     tempoReal: +$('mTempoReal').value || null,
@@ -677,13 +705,15 @@ function desenharServicos(){
           <div class="nome">${esc(s.lona)}</div>
           <small class="sub">${esc(nomeTipo(s.tipo))} · ${fmtNum(s.metragem)} m² · ${esc(nomeEquipe(s.equipe))}</small>
         </div>
-        <div>${tagStatus(s.status)}</div>
+        <div>${s.modo==='LONA_NOVA'? '<span class="tag roxo">🆕 Lona nova</span> ':''}${tagStatus(s.status)}</div>
       </div>
       <div class="det">
+        ${s.modo==='LONA_NOVA'? `
+        <div><b>Medida da lona</b>${s.novaM2? fmtNum(s.novaM2)+' m²'+(s.novaL&&s.novaC? ' ('+fmtNum(s.novaL)+'×'+fmtNum(s.novaC)+')':'') : '—'}</div>` : `
         <div><b>Medida original</b>${s.origM2? fmtNum(s.origM2)+' m²'+(s.origL&&s.origC? ' ('+fmtNum(s.origL)+'×'+fmtNum(s.origC)+')':'') : '—'}</div>
         <div><b>Nova medida</b>${s.novaM2? fmtNum(s.novaM2)+' m²'+(s.novaL&&s.novaC? ' ('+fmtNum(s.novaL)+'×'+fmtNum(s.novaC)+')':'') : '—'}</div>
-        <div><b>Aplicação prevista</b>${esc(s.aplicacao||'—')}</div>
-        <div><b>Montagem atendida</b>${esc(s.montagem||'—')}</div>
+        <div><b>Aplicação prevista</b>${esc(s.aplicacao||'—')}</div>`}
+        <div><b>${s.modo==='LONA_NOVA'? 'Montagem / destino':'Montagem atendida'}</b>${esc(s.montagem||'—')}</div>
         <div><b>Data do serviço</b>${fmtData(s.data)}</div>
         <div><b>Previsão</b>${fmtNum(s.dias)} dia(s) — até ${fmtData(fimPrev)}</div>
         ${s.status==='CONCLUIDO' ? `<div><b>Tempo utilizado</b>${s.tempoReal? fmtNum(s.tempoReal)+' dia(s)':'—'}</div>
