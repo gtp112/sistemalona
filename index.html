@@ -301,6 +301,12 @@ table.tb td{padding:8px; border-bottom:1px solid var(--line)}
     </div>
     <button class="btn p mini" style="margin-top:8px" onclick="addTipo()">➕ Adicionar tipo</button>
   </div>
+
+  <div class="panel">
+    <h2>🗑 Lixeira</h2>
+    <p class="sub">Serviço ou lona excluídos ficam aqui por 30 dias e dá para restaurar. Depois disso são apagados de vez, sozinhos.</p>
+    <div id="listaLixeira"></div>
+  </div>
 </section>
 
 </main>
@@ -392,6 +398,14 @@ table.tb td{padding:8px; border-bottom:1px solid var(--line)}
       <label class="f">📷 Foto depois<input type="file" id="mFotoDepois" accept="image/*" onchange="pegarFoto('Depois', this)"><img id="imgDepois" style="display:none; max-width:100%; border-radius:9px; margin-top:4px"></label>
     </div>
     <label class="f" style="margin-top:10px">📎 Projeto da lona (imagem ou PDF)<input type="file" id="mProjeto" accept="image/*,.pdf,application/pdf" onchange="pegarProjeto(this)"><span id="projNome" class="sub"></span></label>
+    <div id="plantaBox" style="display:none; margin-top:10px; background:var(--azul2); border-radius:10px; padding:11px 13px">
+      <b style="font-size:13px">📐 Medidas lidas da planta</b>
+      <div id="plantaPecas" style="margin-top:6px; font-size:13px; line-height:1.6"></div>
+      <div class="linha" style="margin-top:8px">
+        <button type="button" class="btn p mini" onclick="usarTotalPlanta()">usar como metragem do serviço</button>
+        <button type="button" class="btn c mini" onclick="plantaParaObs()">➕ jogar nas observações</button>
+      </div>
+    </div>
     <label class="f" style="margin-top:10px">Observações<textarea id="mObs" placeholder="detalhes do serviço, acabamentos, ilhós, reforços…"></textarea></label>
 
     <div class="linha" style="margin-top:16px">
@@ -586,6 +600,45 @@ function diasUteisEntre(iniISO, fimISO, cfg){
   while(d <= f && guard < 400){ if(util(d)) n++; d.setDate(d.getDate()+1); guard++; }
   return n;
 }
+/* lê as peças de uma planta de lona a partir dos textos do PDF:
+   número deitado embaixo = largura; número em pé = altura; par mais próximo vira a peça */
+function analisarItensPlanta(itens, larguraPagina){
+  const eMedida = s => /^\d{1,3}([.,]\d{1,2})?$/.test(s);
+  const val = s => parseFloat(String(s).replace(',','.'));
+  const limDx = (larguraPagina || 800) * 0.25;
+  const meds = (itens||[]).filter(i=> eMedida(i.str) && val(i.str) >= 0.5 && val(i.str) <= 80);
+  const hs = meds.filter(i=>!i.vertical), vs = meds.filter(i=>i.vertical);
+  const unidades = (itens||[]).filter(i=>/UNIDADE/i.test(i.str));
+  const pecas = [];
+  hs.forEach(hm=>{
+    let alt = null, melhor = 1e18;
+    vs.forEach(vm=>{
+      if(hm.y >= vm.y) return;   // a largura fica embaixo do desenho, a altura no meio
+      const d = Math.abs(vm.x - hm.x);
+      if(d < melhor && d <= limDx){ melhor = d; alt = vm; }
+    });
+    if(!alt) return;
+    let uni = null; melhor = 1e18;
+    unidades.forEach(u=>{ const d = Math.abs(u.x - hm.x); if(d < melhor){ melhor = d; uni = u; } });
+    let nome = '', qtd = 1;
+    if(uni){
+      const mq = uni.str.match(/(\d+)\s*UNIDADE/i); if(mq) qtd = Math.max(1, +mq[1]||1);
+      let tit = null, mt = 1e18;
+      (itens||[]).forEach(t=>{
+        if(t === uni || eMedida(t.str) || /UNIDADE/i.test(t.str)) return;
+        const dy = t.y - uni.y;
+        if(dy <= 0 || dy > 40) return;
+        const d = Math.abs(t.x - uni.x) + dy;
+        if(d < mt && Math.abs(t.x - uni.x) < 120){ mt = d; tit = t; }
+      });
+      nome = ((tit? tit.str + ' — ' : '') + uni.str).trim();
+    }
+    const larg = val(hm.str), altu = val(alt.str);
+    pecas.push({nome: nome || ('Peça ' + (pecas.length+1)), qtd, larg, alt: altu, m2: Math.round(larg*altu*qtd*100)/100});
+  });
+  const total = Math.round(pecas.reduce((t,p)=>t+p.m2,0)*100)/100;
+  return {pecas, total};
+}
 /* ordem da fila: ⭐ prioridade → montagem mais próxima → data do serviço */
 function ordemFila(a, b){
   const pa = a.prioridade != null, pb = b.prioridade != null;
@@ -649,7 +702,9 @@ function pegarProjeto(input){
     const rd = new FileReader();
     rd.onload = () => { PROJETO_TMP = {url: rd.result, nome: f.name, tipo:'pdf'}; $('projNome').textContent = '📎 ' + f.name; };
     rd.readAsDataURL(f);
+    lerMedidasPlanta(f);
   } else {
+    $('plantaBox').style.display = 'none'; PLANTA_LIDA = null;
     const rd = new FileReader();
     rd.onload = () => {
       const im = new Image();
@@ -680,6 +735,80 @@ async function subirProjeto(id, proj){
     if(pu.data && pu.data.publicUrl) return {url: pu.data.publicUrl + '?v=' + Date.now(), nome: proj.nome, tipo: proj.tipo};
     return proj;
   }catch(e){ console.warn('projeto', e); return proj; }
+}
+let PLANTA_LIDA = null;
+let pdfjsPromessa = null;
+function carregarPdfjs(){
+  if(window.pdfjsLib) return Promise.resolve();
+  if(!pdfjsPromessa){
+    pdfjsPromessa = new Promise((res, rej)=>{
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      s.onload = ()=>{ try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }catch(e){} res(); };
+      s.onerror = ()=>{ pdfjsPromessa = null; rej(new Error('pdfjs')); };
+      document.head.appendChild(s);
+    });
+  }
+  return pdfjsPromessa;
+}
+async function lerMedidasPlanta(file){
+  try{
+    PLANTA_LIDA = null;
+    $('plantaPecas').innerHTML = '<span class="sub">lendo a planta…</span>';
+    $('plantaBox').style.display = 'block';
+    await carregarPdfjs();
+    const buf = await file.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({data: buf}).promise;
+    let itens = [], largura = 800;
+    const ate = Math.min(pdf.numPages, 5);
+    for(let p=1; p<=ate; p++){
+      const pg = await pdf.getPage(p);
+      try{ largura = pg.getViewport({scale:1}).width || largura; }catch(e){}
+      const tc = await pg.getTextContent();
+      tc.items.forEach(it=>{
+        const t = it.transform || [1,0,0,1,0,0];
+        const s = (it.str||'').trim();
+        if(s) itens.push({str:s, x:t[4], y:t[5], vertical: Math.abs(t[1]) > Math.abs(t[0])});
+      });
+    }
+    mostrarMedidasPlanta(analisarItensPlanta(itens, largura));
+  }catch(e){
+    console.warn('planta', e);
+    $('plantaPecas').innerHTML = '<span class="sub">Não consegui ler as medidas desta planta — o projeto fica anexado do mesmo jeito.</span>';
+  }
+}
+function mostrarMedidasPlanta(r){
+  PLANTA_LIDA = r;
+  if(!r || !r.pecas.length){
+    $('plantaPecas').innerHTML = '<span class="sub">Não achei medidas no texto desta planta — o projeto fica anexado do mesmo jeito.</span>';
+    return;
+  }
+  const f2 = n => (+n||0).toLocaleString('pt-BR',{maximumFractionDigits:2});
+  $('plantaPecas').innerHTML = r.pecas.map(p=>
+    `• <b>${esc(p.nome)}</b> — ${f2(p.larg)} × ${f2(p.alt)}${p.qtd>1? ' × '+p.qtd+' un':''} = <b>${f2(p.m2)} m²</b>`).join('<br>') +
+    `<div style="margin-top:6px; font-weight:800">Total: ${fmtNum(r.total)} m²</div>`;
+  if(!(+$('mMetragem').value > 0)){
+    $('mMetragem').value = r.total;
+    atualizarPrevisao();
+    toast('📐 Metragem puxada da planta: ' + fmtNum(r.total) + ' m².');
+  }
+  if(r.pecas.length === 1 && !(+$('mNovaM2').value > 0)){
+    $('mNovaL').value = r.pecas[0].larg;
+    $('mNovaC').value = r.pecas[0].alt;
+    $('mNovaM2').value = round2(r.pecas[0].larg * r.pecas[0].alt);
+  }
+}
+function usarTotalPlanta(){
+  if(!PLANTA_LIDA || !PLANTA_LIDA.total){ toast('Nenhuma medida lida da planta.'); return; }
+  $('mMetragem').value = PLANTA_LIDA.total;
+  atualizarPrevisao();
+  toast('📐 Metragem do serviço: ' + fmtNum(PLANTA_LIDA.total) + ' m².');
+}
+function plantaParaObs(){
+  if(!PLANTA_LIDA || !PLANTA_LIDA.pecas.length){ toast('Nenhuma medida lida da planta.'); return; }
+  const txt = 'Planta: ' + PLANTA_LIDA.pecas.map(p=> p.nome + ' ' + String(p.larg).replace('.',',') + 'x' + String(p.alt).replace('.',',') + (p.qtd>1? ' x'+p.qtd:'') + ' = ' + String(p.m2).replace('.',',') + ' m²').join('; ') + ' | Total ' + String(PLANTA_LIDA.total).replace('.',',') + ' m²';
+  $('mObs').value = ($('mObs').value? $('mObs').value + '\n' : '') + txt;
+  toast('📝 Medidas jogadas nas observações.');
 }
 async function subirFoto(id, qual, dataUrl){
   if(!sb || !dataUrl || !dataUrl.startsWith('data:')) return dataUrl;
@@ -725,6 +854,7 @@ async function nuvemIniciar(){
     // o que ficou guardado só no aparelho sobe agora
     for(const id in SERVICOS){ if(SERVICOS[id].__pendente){ delete SERVICOS[id].__pendente; nuvemSalvarServico(SERVICOS[id]); } }
     for(const id in LONAS){ if(LONAS[id].__pendente){ delete LONAS[id].__pendente; nuvemSalvarLona(LONAS[id]); } }
+    limparLixeiraVencida();
     // tempo real
     sb.channel('rt-lonas')
       .on('postgres_changes', {event:'*', schema:'public', table:TAB}, p=>{
@@ -878,6 +1008,7 @@ function abrirForm(id){
   preencherSelectTipos($('mTipo'), false);
   desenharEquipesForm(s0? equipesDoServico(s0) : (CFG.equipes[0]? [CFG.equipes[0].id] : []));
   $('mFotoAntes').value = ''; $('mFotoDepois').value = ''; $('mProjeto').value = '';
+  PLANTA_LIDA = null; $('plantaBox').style.display = 'none';
   $('mTitulo').textContent = id ? 'Editar serviço' : 'Novo serviço';
   $('mExcluir').style.display = id ? 'inline-block' : 'none';
   const s = id ? SERVICOS[id] : null;
@@ -1011,12 +1142,13 @@ function salvarServico(){
 }
 function excluirServico(){
   if(!editandoId) return;
-  if(!confirm('Excluir este serviço? Não dá para desfazer.')) return;
-  const id = editandoId;
-  delete SERVICOS[id];
-  salvarLocal(); nuvemExcluir(id);
+  if(!confirm('Mandar este serviço para a lixeira? Fica 30 dias lá e dá para restaurar nas Configurações.')) return;
+  const s = SERVICOS[editandoId]; if(!s) return;
+  s.excluido = {em: new Date().toISOString()};
+  s.atualizadoEm = new Date().toISOString();
+  salvarLocal(); nuvemSalvarServico(s);
   fecharForm(); desenharTudo();
-  toast('🗑 Serviço excluído.');
+  toast('🗑 Serviço na lixeira — restaura nas Configurações se precisar.');
 }
 function concluirRapido(id){
   const s = SERVICOS[id]; if(!s) return;
@@ -1123,12 +1255,36 @@ function salvarLona(){
 }
 function excluirLona(){
   if(!editandoLonaId) return;
-  if(!confirm('Excluir esta lona do estoque? Não dá para desfazer.')) return;
-  const id = editandoLonaId;
-  delete LONAS[id];
-  salvarLocal(); nuvemExcluirLona(id);
+  if(!confirm('Mandar esta lona para a lixeira? Fica 30 dias lá e dá para restaurar nas Configurações.')) return;
+  const l = LONAS[editandoLonaId]; if(!l) return;
+  l.excluido = {em: new Date().toISOString()};
+  l.atualizadoEm = new Date().toISOString();
+  salvarLocal(); nuvemSalvarLona(l);
   fecharFormLona(); desenharTudo();
-  toast('🗑 Lona excluída do estoque.');
+  toast('🗑 Lona na lixeira — restaura nas Configurações se precisar.');
+}
+function diasNaLixeira(em){ return Math.floor((Date.now() - new Date(em).getTime())/86400000); }
+function restaurarDaLixeira(tipo, id){
+  const o = tipo==='servico'? SERVICOS[id] : LONAS[id];
+  if(!o) return;
+  delete o.excluido;
+  o.atualizadoEm = new Date().toISOString();
+  if(tipo==='servico') nuvemSalvarServico(o); else nuvemSalvarLona(o);
+  salvarLocal(); desenharTudo();
+  toast('↩ Restaurado da lixeira.');
+}
+function excluirDeVez(tipo, id){
+  if(!confirm('Apagar DE VEZ? Aí não tem mais volta.')) return;
+  if(tipo==='servico'){ delete SERVICOS[id]; nuvemExcluir(id); }
+  else { delete LONAS[id]; nuvemExcluirLona(id); }
+  salvarLocal(); desenharTudo();
+  toast('🗑 Apagado de vez.');
+}
+function limparLixeiraVencida(){
+  let mexeu = false;
+  for(const id in SERVICOS){ const e = SERVICOS[id].excluido; if(e && e.em && diasNaLixeira(e.em) > 30){ delete SERVICOS[id]; nuvemExcluir(id); mexeu = true; } }
+  for(const id in LONAS){ const e = LONAS[id].excluido; if(e && e.em && diasNaLixeira(e.em) > 30){ delete LONAS[id]; nuvemExcluirLona(id); mexeu = true; } }
+  if(mexeu) salvarLocal();
 }
 function saidaMontagem(id){
   const l = LONAS[id]; if(!l) return;
@@ -1181,7 +1337,7 @@ function tagSituacao(s){
 }
 function desenharEstoque(){
   if(!$('listaEstoque')) return;
-  const todas = Object.values(LONAS).sort((a,b)=> (a.nome||'').localeCompare(b.nome||''));
+  const todas = Object.values(LONAS).filter(l=>!l.excluido).sort((a,b)=> (a.nome||'').localeCompare(b.nome||''));
   const disp = todas.filter(l=>l.situacao==='DISPONIVEL');
   const m2Disp = disp.reduce((t,l)=>t+(+l.m2||0),0);
   $('kpisEstoque').innerHTML = `
@@ -1197,7 +1353,7 @@ function desenharEstoque(){
   });
   if(!lista.length){ $('listaEstoque').innerHTML = '<div class="panel vazio">Nenhuma lona por aqui. Cadastre em <b>➕ Nova lona no estoque</b> — e toda lona nova produzida entra sozinha quando o serviço conclui.</div>'; return; }
   $('listaEstoque').innerHTML = lista.map(l=>{
-    const servAberto = Object.values(SERVICOS).find(s=> s.estoqueId===l.id && s.status!=='CONCLUIDO');
+    const servAberto = Object.values(SERVICOS).find(s=> !s.excluido && s.estoqueId===l.id && s.status!=='CONCLUIDO');
     const movs = (l.movs||[]).slice(-3).reverse().map(m=>`<div style="font-size:12px; color:var(--muted)">• ${fmtData(m.data)} — ${esc(m.texto)}</div>`).join('');
     return `<div class="card-serv">
       <div class="topo">
@@ -1229,7 +1385,7 @@ function desenharEstoque(){
 
 /* =================== DESENHO =================== */
 function listaOrdenada(){
-  return Object.values(SERVICOS).sort((a,b)=> (b.data||'').localeCompare(a.data||'') || (b.criadoEm||'').localeCompare(a.criadoEm||''));
+  return Object.values(SERVICOS).filter(s=>!s.excluido).sort((a,b)=> (b.data||'').localeCompare(a.data||'') || (b.criadoEm||'').localeCompare(a.criadoEm||''));
 }
 function desenharTudo(){
   $('capHeader').textContent = fmtNum(CFG.capacidade);
@@ -1415,13 +1571,13 @@ function desenharRepos(){
       </div>
       <div class="det">
         <div><b>Prazo da reposição</b>${s.repo&&s.repo.prazo? fmtData(s.repo.prazo):'—'}</div>
-        ${s.repo&&s.repo.servicoId&&SERVICOS[s.repo.servicoId]? `<div><b>Produção amarrada</b>${esc(SERVICOS[s.repo.servicoId].lona)} (${SERVICOS[s.repo.servicoId].status==='CONCLUIDO'?'✔ concluída':SERVICOS[s.repo.servicoId].status==='EM_ANDAMENTO'?'▶ em andamento':'● programada'})</div>`:''}
+        ${s.repo&&s.repo.servicoId&&SERVICOS[s.repo.servicoId]&&!SERVICOS[s.repo.servicoId].excluido? `<div><b>Produção amarrada</b>${esc(SERVICOS[s.repo.servicoId].lona)} (${SERVICOS[s.repo.servicoId].status==='CONCLUIDO'?'✔ concluída':SERVICOS[s.repo.servicoId].status==='EM_ANDAMENTO'?'▶ em andamento':'● programada'})</div>`:''}
         <div><b>Medida a repor</b>${s.origM2? fmtNum(s.origM2)+' m²':'—'}</div>
         <div><b>Serviço de origem</b>${fmtData(s.data)} · ${esc(nomeTipo(s.tipo))}</div>
       </div>
       <div class="acoes">
         <button class="btn c mini" onclick="abrirForm('${s.id}')">✏️ Abrir serviço</button>
-        ${s.repo&&s.repo.precisa&&s.repo.status!=='CONCLUIDA'&&!(s.repo.servicoId&&SERVICOS[s.repo.servicoId])? `<button class="btn p mini" onclick="criarProducaoReposicao('${s.id}')">🆕 Criar produção da lona</button>`:''}
+        ${s.repo&&s.repo.precisa&&s.repo.status!=='CONCLUIDA'&&!(s.repo.servicoId&&SERVICOS[s.repo.servicoId]&&!SERVICOS[s.repo.servicoId].excluido)? `<button class="btn p mini" onclick="criarProducaoReposicao('${s.id}')">🆕 Criar produção da lona</button>`:''}
         ${s.repo&&s.repo.precisa&&s.repo.status!=='CONCLUIDA'? `<button class="btn v mini" onclick="marcarRepoConcluida('${s.id}')">✔ Reposição concluída</button>`:''}
       </div>
     </div>`;
@@ -1523,7 +1679,7 @@ function desenharRelatorio(){
 
   // 📊 mês a mês (sempre geral)
   const porMes = {};
-  Object.values(SERVICOS).filter(s=> s.status==='CONCLUIDO' && +s.tempoReal>0).forEach(s=>{
+  Object.values(SERVICOS).filter(s=> !s.excluido && s.status==='CONCLUIDO' && +s.tempoReal>0).forEach(s=>{
     const k = (s.fim || s.data || '').slice(0,7); if(!k) return;
     const o = porMes[k] = porMes[k] || {m2:0, dias:0};
     o.m2 += +s.metragem||0; o.dias += +s.tempoReal||0;
@@ -1558,7 +1714,7 @@ function desenharConfig(){
     </div>`).join('') || '<div class="vazio" style="padding:10px">Nenhuma equipe cadastrada.</div>';
   $('tbTiposCfg').innerHTML = `<tr><th>Tipo de serviço</th><th>Fator</th><th>Capacidade efetiva</th><th>Sugestão (pelo realizado)</th><th></th></tr>` +
     (CFG.tipos||[]).map(t=>{
-      const sug = sugestaoFator(t.id, Object.values(SERVICOS), CFG);
+      const sug = sugestaoFator(t.id, Object.values(SERVICOS).filter(x=>!x.excluido), CFG);
       const dif = sug && Math.abs(sug.fator - t.fator) >= 0.05;
       const celSug = !sug
         ? '<small class="sub">precisa de 3 serviços concluídos desse tipo</small>'
@@ -1575,6 +1731,18 @@ function desenharConfig(){
   $('listaChecklist').innerHTML = (CFG.checklist||[]).map((item,i)=>`
     <div class="fila-item"><span>✅ ${esc(item)}</span><button class="btn d mini" style="margin-left:auto" onclick="removerItemChecklist(${i})">remover</button></div>`).join('')
     || '<div class="vazio" style="padding:10px">Sem itens — concluir não vai exigir checklist.</div>';
+  const lix = [
+    ...Object.values(SERVICOS).filter(s=>s.excluido).map(s=>({tipo:'servico', id:s.id, nome:s.lona, em:s.excluido.em, icone:'🔧'})),
+    ...Object.values(LONAS).filter(l=>l.excluido).map(l=>({tipo:'lona', id:l.id, nome:l.nome, em:l.excluido.em, icone:'📦'}))
+  ].sort((a,b)=> (b.em||'').localeCompare(a.em||''));
+  $('listaLixeira').innerHTML = lix.map(x=>{
+    const resta = Math.max(0, 30 - diasNaLixeira(x.em));
+    return `<div class="fila-item">
+      <span>${x.icone} <b>${esc(x.nome||'(sem nome)')}</b><br><small class="sub">excluído em ${fmtData((x.em||'').slice(0,10))} · some de vez em ${resta} dia(s)</small></span>
+      <button class="btn v mini" style="margin-left:auto" onclick="restaurarDaLixeira('${x.tipo}','${x.id}')">↩ Restaurar</button>
+      <button class="btn d mini" onclick="excluirDeVez('${x.tipo}','${x.id}')">apagar de vez</button>
+    </div>`;
+  }).join('') || '<div class="vazio" style="padding:10px">Lixeira vazia. 👍</div>';
 }
 function addItemChecklist(){
   const v = $('qlNovo').value.trim();
@@ -1603,7 +1771,7 @@ function addEquipe(){
   salvarLocal(); nuvemSalvarCfg(); desenharTudo();
 }
 function removerEquipe(id){
-  if(Object.values(SERVICOS).some(s=>equipesDoServico(s).includes(id) && s.status!=='CONCLUIDO')){ toast('Essa equipe tem serviço na fila — conclua ou troque a equipe antes.'); return; }
+  if(Object.values(SERVICOS).some(s=>!s.excluido && equipesDoServico(s).includes(id) && s.status!=='CONCLUIDO')){ toast('Essa equipe tem serviço na fila — conclua ou troque a equipe antes.'); return; }
   if(!confirm('Remover a equipe?')) return;
   CFG.equipes = CFG.equipes.filter(e=>e.id!==id);
   salvarLocal(); nuvemSalvarCfg(); desenharTudo();
@@ -1624,7 +1792,7 @@ function mudarFator(id, v){
   else toast('Fator entre 0,10 e 1,00.');
 }
 function removerTipo(id){
-  if(Object.values(SERVICOS).some(s=>s.tipo===id)){ toast('Esse tipo já foi usado em serviços — não dá para remover.'); return; }
+  if(Object.values(SERVICOS).some(s=>!s.excluido && s.tipo===id)){ toast('Esse tipo já foi usado em serviços — não dá para remover.'); return; }
   if(!confirm('Remover o tipo de serviço?')) return;
   CFG.tipos = CFG.tipos.filter(t=>t.id!==id);
   salvarLocal(); nuvemSalvarCfg(); desenharTudo();
