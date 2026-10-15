@@ -185,6 +185,17 @@ table.tb td{padding:8px; border-bottom:1px solid var(--line)}
     <p class="sub">Os serviços programados e em andamento entram na fila da equipe nesta ordem: primeiro quem tem ⭐ prioridade, depois quem tem a montagem mais próxima e, por último, pela data do serviço. A previsão usa a capacidade de <b><span class="capTexto">70</span> m² por dia</b> ajustada pelo fator do tipo de serviço, pulando domingo<span id="txtSabado"></span>.</p>
     <div id="projMes" class="previsao-box" style="margin-top:10px"></div>
   </div>
+  <div class="panel">
+    <h2>🧮 Simulador de encaixe</h2>
+    <p class="sub">Chegou uma demanda? Veja quando ela caberia na fila real, sem cadastrar nada.</p>
+    <div class="grid g3">
+      <label class="f">Metragem (m²)<input type="number" id="simM2" min="0" step="1"></label>
+      <label class="f">Tipo de serviço<select id="simTipo"></select></label>
+      <label class="f">Quantas equipes<input type="number" id="simEq" min="1" step="1" value="1"></label>
+    </div>
+    <button class="btn p mini" style="margin-top:10px" onclick="simularEncaixe()">Simular encaixe</button>
+    <div id="simResultado" class="previsao-box" style="margin-top:10px; display:none"></div>
+  </div>
   <div id="listaFila"></div>
 </section>
 
@@ -237,10 +248,19 @@ table.tb td{padding:8px; border-bottom:1px solid var(--line)}
     <button class="btn c mini" onclick="window.print()">🖨 Imprimir</button>
   </div>
   <div class="kpis" id="kpisRel"></div>
+  <div id="metaBox" class="panel" style="display:none"></div>
   <div class="panel">
     <h2>Previsto × Realizado por tipo de serviço</h2>
     <p class="sub">Só entram os serviços concluídos com o tempo utilizado informado.</p>
     <div class="tbwrap"><table class="tb" id="tbTipos"></table></div>
+  </div>
+  <div class="panel">
+    <h2>📋 Ficha por evento / montagem</h2>
+    <div class="linha">
+      <select id="relEvento" onchange="desenharFichaEvento()" style="border:1px solid var(--line); border-radius:9px; padding:8px 10px; min-width:230px; background:#fff; font-size:13.5px"></select>
+      <button class="btn c mini" onclick="imprimirFichaEvento()">🖨 Imprimir ficha</button>
+    </div>
+    <div id="relEventoCorpo" style="margin-top:10px"></div>
   </div>
   <div class="panel">
     <h2>⏰ Motivos de atraso</h2>
@@ -265,6 +285,7 @@ table.tb td{padding:8px; border-bottom:1px solid var(--line)}
     <div class="grid g3">
       <label class="f">Capacidade por equipe (m²/dia)<input type="number" id="cfgCap" min="1" step="1"></label>
       <label class="f">Trabalha no sábado?<select id="cfgSabado"><option value="sim">Sim</option><option value="nao">Não</option></select></label>
+      <label class="f">Meta do mês (m²)<input type="number" id="cfgMeta" min="0" step="10" placeholder="0 = sem meta"></label>
     </div>
     <p class="sub" style="margin-top:8px">Referência: com 70 m²/dia, uma produção de 350 m² leva 5 dias de trabalho para uma equipe (1 vulcanizador + 1 ajudante).</p>
     <button class="btn v" style="margin-top:10px" onclick="salvarCfgGeral()">💾 Salvar</button>
@@ -398,11 +419,16 @@ table.tb td{padding:8px; border-bottom:1px solid var(--line)}
       <label class="f">📷 Foto depois<input type="file" id="mFotoDepois" accept="image/*" onchange="pegarFoto('Depois', this)"><img id="imgDepois" style="display:none; max-width:100%; border-radius:9px; margin-top:4px"></label>
     </div>
     <label class="f" style="margin-top:10px">📎 Projeto da lona (imagem ou PDF)<input type="file" id="mProjeto" accept="image/*,.pdf,application/pdf" onchange="pegarProjeto(this)"><span id="projNome" class="sub"></span></label>
+    <div class="linha" style="margin-top:6px">
+      <button type="button" class="btn c mini" onclick="alternarBiblioteca()">📚 escolher planta já usada</button>
+    </div>
+    <div id="bibPlantas" style="display:none; margin-top:8px; border:1px solid var(--line); border-radius:10px; padding:8px; max-height:220px; overflow-y:auto"></div>
     <div id="plantaBox" style="display:none; margin-top:10px; background:var(--azul2); border-radius:10px; padding:11px 13px">
       <b style="font-size:13px">📐 Medidas lidas da planta</b>
       <div id="plantaPecas" style="margin-top:6px; font-size:13px; line-height:1.6"></div>
       <div class="linha" style="margin-top:8px">
         <button type="button" class="btn p mini" onclick="usarTotalPlanta()">usar como metragem do serviço</button>
+        <button type="button" class="btn v mini" onclick="criarServicosPorPeca()">🧩 criar um serviço por peça</button>
         <button type="button" class="btn c mini" onclick="plantaParaObs()">➕ jogar nas observações</button>
       </div>
     </div>
@@ -496,7 +522,8 @@ function cfgPadrao(){
       {id:'REFORCO',    nome:'Reforço',                  fator:0.80},
       {id:'ACABAMENTO', nome:'Acabamento especial',      fator:0.70}
     ],
-    checklist: ['Solda/emenda testada','Medida final conferida','Ilhós e reforços firmes','Lona limpa e dobrada']
+    checklist: ['Solda/emenda testada','Medida final conferida','Ilhós e reforços firmes','Lona limpa e dobrada'],
+    metaMensalM2: 0
   };
 }
 
@@ -653,6 +680,7 @@ function ordemFila(a, b){
 const $ = id => document.getElementById(id);
 function hoje(){ return new Date().toISOString().slice(0,10); }
 function fmtData(iso){ if(!iso) return '—'; const [a,m,d] = iso.split('-'); return d+'/'+m+'/'+a.slice(2); }
+function fmtDataHora(iso){ if(!iso) return '—'; const d = new Date(iso); return fmtData(iso.slice(0,10)) + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
 function fmtNum(n){ return (+n||0).toLocaleString('pt-BR',{maximumFractionDigits:1}); }
 function esc(t){ return String(t==null?'':t).replace(/[<>&"]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
 function uid(){ return 'srv_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
@@ -810,6 +838,72 @@ function plantaParaObs(){
   $('mObs').value = ($('mObs').value? $('mObs').value + '\n' : '') + txt;
   toast('📝 Medidas jogadas nas observações.');
 }
+function criarServicosPorPeca(){
+  if(!PLANTA_LIDA || !PLANTA_LIDA.pecas.length){ toast('Nenhuma peça lida da planta.'); return; }
+  const montagem = $('mMontagem').value.trim();
+  if(!montagem){ toast('Preencha a montagem — é ela que junta as peças no mesmo evento.'); return; }
+  if(!$('mData').value){ toast('Preencha a data do serviço.'); return; }
+  const eqs = equipesMarcadas();
+  if(!eqs.length){ toast('Marque pelo menos uma equipe.'); return; }
+  const tipo = $('mTipo').value, data = $('mData').value, dataMontagem = $('mDataMontagem').value || '', modo = modoAtual;
+  const aplicacao = modo==='LONA_NOVA'? '' : $('mAplicacao').value.trim();
+  PLANTA_LIDA.pecas.forEach(p=>{
+    const id = uid();
+    const s = {
+      id, modo,
+      lona: p.nome,
+      aplicacao,
+      origL:null, origC:null, origM2:null,
+      novaL:p.larg, novaC:p.alt, novaM2: round2(p.larg*p.alt),
+      montagem, data, dataMontagem, tipo,
+      metragem: p.m2,
+      equipes: eqs, equipe: eqs[0],
+      dias: calcDiasPrevistos(p.m2, tipo, CFG, eqs.length),
+      repo: {precisa:false, prazo:'', status:''},
+      status:'PROGRAMADO', fim:'', tempoReal:null,
+      obs:'', qualidade:[],
+      projeto: PROJETO_TMP? Object.assign({}, PROJETO_TMP) : null,
+      planta: {pecas:[Object.assign({}, p)], total: p.m2},
+      timeline: [{em:new Date().toISOString(), texto:'criado pela planta — peça da montagem ' + montagem}],
+      criadoEm:new Date().toISOString(), atualizadoEm:new Date().toISOString()
+    };
+    SERVICOS[id] = s;
+    nuvemSalvarServico(s);
+  });
+  salvarLocal();
+  fecharForm();
+  desenharTudo();
+  toast('🧩 ' + PLANTA_LIDA.pecas.length + ' serviço(s) criados, um por peça, para ' + montagem + '.');
+}
+function alternarBiblioteca(){
+  const box = $('bibPlantas');
+  if(box.style.display === 'block'){ box.style.display = 'none'; return; }
+  const vistos = {};
+  const plantas = [];
+  listaOrdenada().forEach(s=>{
+    if(!(s.projeto && s.projeto.url)) return;
+    const chave = (s.projeto.nome||'') + '|' + s.projeto.url.slice(0, 80);
+    if(vistos[chave]) return;
+    vistos[chave] = true;
+    plantas.push({sid: s.id, nome: s.projeto.nome || 'projeto', montagem: s.montagem || '', total: (s.planta && s.planta.total) || 0});
+  });
+  box.innerHTML = plantas.length? plantas.map(p=>
+    `<div class="fila-item" style="cursor:pointer" onclick="usarPlantaBiblioteca('${p.sid}')"><span>📐 <b>${esc(p.nome)}</b><br><small class="sub">${esc(p.montagem||'—')}${p.total? ' · '+fmtNum(p.total)+' m²':''}</small></span><span class="per">usar ›</span></div>`).join('')
+    : '<div class="vazio" style="padding:8px">Nenhuma planta anexada ainda.</div>';
+  box.style.display = 'block';
+}
+function usarPlantaBiblioteca(sid){
+  const s = SERVICOS[sid];
+  if(!s || !s.projeto){ toast('Planta não encontrada.'); return; }
+  PROJETO_TMP = Object.assign({}, s.projeto);
+  $('projNome').textContent = '📎 ' + (s.projeto.nome || 'projeto') + ' (da biblioteca)';
+  $('bibPlantas').style.display = 'none';
+  if(s.planta && s.planta.pecas && s.planta.pecas.length){
+    $('plantaBox').style.display = 'block';
+    mostrarMedidasPlanta({pecas: s.planta.pecas.map(p=>Object.assign({}, p)), total: s.planta.total});
+  }
+  toast('📚 Planta reaproveitada da biblioteca.');
+}
 async function subirFoto(id, qual, dataUrl){
   if(!sb || !dataUrl || !dataUrl.startsWith('data:')) return dataUrl;
   try{
@@ -926,12 +1020,16 @@ function irAba(a){
 
 /* =================== FORMULÁRIO =================== */
 function preencherSelectTipos(sel, comVazio){
+  const v = sel.value;
   sel.innerHTML = (comVazio? '<option value="">Todos os tipos</option>' : '') +
     (CFG.tipos||[]).map(t=>`<option value="${t.id}">${esc(t.nome)}</option>`).join('');
+  if([...sel.options].some(o=>o.value===v)) sel.value = v;
 }
 function preencherSelectEquipes(sel, comVazio){
+  const v = sel.value;
   sel.innerHTML = (comVazio? '<option value="">Todas as equipes</option>' : '') +
     (CFG.equipes||[]).map(e=>`<option value="${e.id}">${esc(nomeEquipe(e.id))}</option>`).join('');
+  if([...sel.options].some(o=>o.value===v)) sel.value = v;
 }
 function calcM2(qual){
   const l = +$('m'+qual+'L').value, c = +$('m'+qual+'C').value;
@@ -1092,6 +1190,7 @@ function salvarServico(){
     estoqueId: antes.estoqueId || estoquePendId || null,
     estoqueCriado: antes.estoqueCriado || null,
     projeto: PROJETO_TMP || antes.projeto || null,
+    planta: PLANTA_LIDA || antes.planta || null,
     motivoAtraso: $('mStatus').value==='CONCLUIDO'
       ? (temAtraso($('mDias').value, $('mTempoReal').value)? {cod:$('mMotivo').value, texto:$('mMotivoTxt').value.trim()} : null)
       : (antes.motivoAtraso||null),
@@ -1099,6 +1198,31 @@ function salvarServico(){
     atualizadoEm: new Date().toISOString()
   };
   if(s.status==='CONCLUIDO' && !s.fim) s.fim = hoje();
+  // 📐 conferência produzido × planta
+  s.plantaDivergente = antes.plantaDivergente || false;
+  if(s.status==='CONCLUIDO' && antes.status !== 'CONCLUIDO' && s.planta && +s.planta.total > 0){
+    const feito = +s.novaM2 > 0 ? +s.novaM2 : +s.metragem;
+    if(feito > 0 && Math.abs(feito - s.planta.total) / s.planta.total > 0.02){
+      if(!confirm('📐 A planta diz ' + fmtNum(s.planta.total) + ' m² e o produzido ficou ' + fmtNum(feito) + ' m². Concluir assim mesmo?')) return;
+      s.plantaDivergente = true;
+    } else s.plantaDivergente = false;
+  }
+  // 🕒 linha do tempo automática
+  {
+    const tl = (antes.timeline||[]).slice();
+    const ev = t => tl.push({em: new Date().toISOString(), texto: t});
+    if(!antes.id) ev('serviço criado' + (s.modo==='LONA_NOVA'? ' (produção de lona nova)' : ''));
+    else {
+      if(antes.status !== s.status) ev(s.status==='CONCLUIDO'? 'concluído' + (+s.tempoReal>0? ' — '+fmtNum(s.tempoReal)+' dia(s) utilizados':'') : s.status==='EM_ANDAMENTO'? 'entrou em andamento' : 'voltou para programado');
+      if((+antes.metragem||0) !== (+s.metragem||0)) ev('metragem: ' + fmtNum(antes.metragem||0) + ' → ' + fmtNum(s.metragem) + ' m²');
+      if((antes.data||'') !== s.data) ev('data do serviço: ' + fmtData(antes.data) + ' → ' + fmtData(s.data));
+    }
+    if(!antes.fotoAntes && s.fotoAntes) ev('foto de antes anexada');
+    if(!antes.fotoDepois && s.fotoDepois) ev('foto de depois anexada');
+    if(!(antes.projeto && antes.projeto.url) && s.projeto && s.projeto.url) ev('planta/projeto anexado' + (s.planta && s.planta.total? ' — '+fmtNum(s.planta.total)+' m² lidos' : ''));
+    if(s.plantaDivergente && !antes.plantaDivergente) ev('⚠ concluído com medida diferente da planta');
+    s.timeline = tl.slice(-30);
+  }
   SERVICOS[id] = s;
   // serviço criado a partir de uma reposição: amarra os dois
   if(s.repoOrigemId){
@@ -1393,6 +1517,7 @@ function desenharTudo(){
   $('txtSabado').textContent = CFG.trabalhaSabado ? '' : ' e sábado';
   preencherSelectTipos($('fTipo'), true);
   preencherSelectEquipes($('fEquipe'), true);
+  preencherSelectTipos($('simTipo'), false);
   desenharServicos();
   desenharFila();
   desenharCalendario();
@@ -1475,6 +1600,8 @@ function desenharServicos(){
       ${s.status==='CONCLUIDO'&&s.qualidade&&s.qualidade.length? `<div style="margin-top:8px; font-size:12.5px; color:var(--verde); font-weight:700">✅ Qualidade conferida (${s.qualidade.length} itens)</div>`:''}
       ${s.status==='CONCLUIDO'&&s.motivoAtraso&&s.motivoAtraso.cod? `<div style="margin-top:8px; font-size:12.5px; color:var(--verm); font-weight:700">⏰ Motivo do atraso: ${esc(nomeMotivo(s.motivoAtraso.cod))}${s.motivoAtraso.texto? ' — '+esc(s.motivoAtraso.texto):''}</div>`:''}
       ${s.projeto&&s.projeto.url? `<div style="margin-top:8px"><a href="${s.projeto.url}" target="_blank" style="font-size:13px; font-weight:700; color:var(--azul)">📎 ${esc(s.projeto.nome||'Projeto da lona')}</a></div>`:''}
+      ${s.plantaDivergente? `<div style="margin-top:8px; font-size:12.5px; color:var(--amarelo); font-weight:700">📐 Produzido diferente da planta (planta: ${fmtNum(s.planta&&s.planta.total||0)} m²)</div>`:''}
+      ${(s.timeline&&s.timeline.length)? `<div style="margin-top:8px; border-top:1px dashed var(--line); padding-top:6px">${s.timeline.slice(-3).reverse().map(ev=>`<div style="font-size:12px; color:var(--muted)">🕒 ${fmtDataHora(ev.em)} — ${esc(ev.texto)}</div>`).join('')}</div>`:''}
       ${s.obs? `<div style="margin-top:8px; font-size:13px; color:var(--muted)">📝 ${esc(s.obs)}</div>`:''}
       ${(s.fotoAntes||s.fotoDepois)? `<div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">${s.fotoAntes? `<a href="${s.fotoAntes}" target="_blank"><img src="${s.fotoAntes}" style="height:72px; border-radius:8px" title="antes"></a>`:''}${s.fotoDepois? `<a href="${s.fotoDepois}" target="_blank"><img src="${s.fotoDepois}" style="height:72px; border-radius:8px" title="depois"></a>`:''}</div>`:''}
       ${extra}
@@ -1487,8 +1614,10 @@ function desenharServicos(){
   }).join('');
 }
 
+let FILA_FIM = {};
 function desenharFila(){
   const h = hoje();
+  FILA_FIM = {};
   const porEq = {};
   (CFG.equipes||[]).forEach(e=> porEq[e.id] = []);
   listaOrdenada().filter(s=>s.status!=='CONCLUIDO')
@@ -1513,6 +1642,7 @@ function desenharFila(){
       </div>`;
     }).join('');
     if(cursor && cursor > fimGeral) fimGeral = cursor;
+    FILA_FIM[eq] = cursor || '';
     const m2 = fila.reduce((t,s)=>t+(+s.metragem||0),0);
     const dias = fila.reduce((t,s)=>t+(+s.dias||0),0);
     return `<div class="eq-bloco">
@@ -1584,6 +1714,23 @@ function desenharRepos(){
   }).join('');
 }
 
+function simularEncaixe(){
+  const m = +$('simM2').value;
+  if(!(m > 0)){ toast('Digite a metragem.'); return; }
+  const tipo = $('simTipo').value;
+  const maxEq = Math.max(1, (CFG.equipes||[]).length);
+  const pedidas = Math.max(1, +$('simEq').value || 1);
+  const nEq = Math.min(pedidas, maxEq);
+  const dias = calcDiasPrevistos(m, tipo, CFG, nEq);
+  const fins = (CFG.equipes||[]).map(e=> FILA_FIM[e.id] || '').sort();
+  const escolhidas = fins.slice(0, nEq);
+  const base = escolhidas[escolhidas.length - 1] || '';
+  const ini = (base && base >= hoje())? proximoDiaUtil(base, CFG) : hoje();
+  const fim = dataFimPrevista(ini, dias, CFG);
+  const box = $('simResultado');
+  box.style.display = 'block';
+  box.innerHTML = `Encaixe de <b>${fmtNum(m)} m²</b> de ${esc(nomeTipo(tipo))} com ${nEq} equipe(s): <b>${fmtNum(dias)} dia(s)</b> de trabalho — começa em <b>${fmtData(ini)}</b> e termina em <b>${fmtData(fim)}</b>${pedidas > maxEq? ' <small class="sub">(só tem '+maxEq+' equipe cadastrada)</small>' : ''}.`;
+}
 let CAL_MES = hoje().slice(0,7);
 function mudarMesCal(d){
   const [a,m] = CAL_MES.split('-').map(Number);
@@ -1697,6 +1844,28 @@ function desenharRelatorio(){
     </div>`;
   }).join('') || '<div class="vazio">Ainda não tem mês com serviço concluído.</div>';
 
+  // 🎯 meta do mês
+  const meta = +CFG.metaMensalM2 || 0;
+  const metaBox = $('metaBox');
+  if(meta > 0){
+    const mesMeta = mes || hoje().slice(0,7);
+    const feitoMeta = (porMes[mesMeta] || {m2:0}).m2;
+    const pct = Math.min(100, Math.round(feitoMeta/meta*100));
+    const [ma, mm] = mesMeta.split('-');
+    metaBox.style.display = 'block';
+    metaBox.innerHTML = `<h2>🎯 Meta de ${mm}/${ma}</h2>
+      <div class="prog" style="height:14px; margin-top:8px"><i style="width:${pct}%; background:${pct>=100? 'var(--verde)':'var(--laranja)'}"></i></div>
+      <p class="sub" style="margin-top:6px"><b>${fmtNum(feitoMeta)}</b> de <b>${fmtNum(meta)} m²</b> (${pct}%)${feitoMeta >= meta? ' — 🎉 meta batida!' : ' — faltam '+fmtNum(meta-feitoMeta)+' m²'}</p>`;
+  } else metaBox.style.display = 'none';
+
+  // 📋 ficha por evento
+  const selEv = $('relEvento');
+  const vSel = selEv.value;
+  const eventos = [...new Set(Object.values(SERVICOS).filter(s=>!s.excluido && (s.montagem||'').trim()).map(s=>s.montagem.trim()))].sort();
+  selEv.innerHTML = '<option value="">— escolher a montagem —</option>' + eventos.map(e=>`<option value="${esc(e)}">${esc(e)}</option>`).join('');
+  if(eventos.includes(vSel)) selEv.value = vSel;
+  desenharFichaEvento();
+
   $('tbConcluidos').innerHTML = `<tr><th>Lona</th><th>Tipo</th><th>Montagem</th><th>m²</th><th>Equipe</th><th>Prev.</th><th>Real</th><th>m²/dia</th></tr>` +
     (concl.map(s=>{
       const p = produtividade(s);
@@ -1704,9 +1873,57 @@ function desenharRelatorio(){
     }).join('') || '<tr><td colspan="8" class="vazio">Sem serviços concluídos ainda.</td></tr>');
 }
 
+function servicosDoEvento(ev){ return listaOrdenada().filter(s=> (s.montagem||'').trim() === ev); }
+function desenharFichaEvento(){
+  const ev = $('relEvento').value;
+  $('relEventoCorpo').innerHTML = ev? fichaEventoHTML(ev, false) : '<div class="vazio" style="padding:10px">Escolha a montagem para ver a ficha dela.</div>';
+}
+function fichaEventoHTML(ev, impressao){
+  const lista = servicosDoEvento(ev);
+  const m2 = lista.reduce((t,s)=>t+(+s.metragem||0),0);
+  const prev = lista.reduce((t,s)=>t+(+s.dias||0),0);
+  const real = lista.filter(s=>s.status==='CONCLUIDO').reduce((t,s)=>t+(+s.tempoReal||0),0);
+  const nConcl = lista.filter(s=>s.status==='CONCLUIDO').length;
+  const linhas = lista.map(s=>`<tr>
+    <td><b>${esc(s.lona)}</b>${s.modo==='LONA_NOVA'? ' 🆕':''}</td>
+    <td>${esc(nomeTipo(s.tipo))}</td>
+    <td>${s.novaM2? fmtNum(s.novaM2)+' m²'+(s.novaL&&s.novaC? ' ('+fmtNum(s.novaL)+'×'+fmtNum(s.novaC)+')':'') : fmtNum(s.metragem)+' m²'}</td>
+    <td>${fmtData(s.data)}</td>
+    <td>${fmtNum(s.dias)}d${s.tempoReal? ' / '+fmtNum(s.tempoReal)+'d' : ''}</td>
+    <td>${s.status==='CONCLUIDO'? '✔ concluído' : s.status==='EM_ANDAMENTO'? '▶ andamento' : '● programado'}</td>
+  </tr>`).join('');
+  const fotos = lista.flatMap(s=>[s.fotoAntes, s.fotoDepois]).filter(Boolean);
+  const plantas = []; const vist = {};
+  lista.forEach(s=>{ if(s.projeto && s.projeto.url && !vist[s.projeto.url]){ vist[s.projeto.url] = 1; plantas.push(s.projeto); } });
+  return `<p class="sub"><b>${lista.length}</b> serviço(s) · <b>${fmtNum(m2)} m²</b> · previsto ${fmtNum(prev)}d${real? ' · realizado '+fmtNum(real)+'d' : ''} · ${nConcl} concluído(s)</p>
+    <div class="tbwrap"><table class="tb"><tr><th>Lona / peça</th><th>Tipo</th><th>Medida</th><th>Data</th><th>Prev/Real</th><th>Situação</th></tr>${linhas || '<tr><td colspan="6" class="vazio">Nenhum serviço nessa montagem.</td></tr>'}</table></div>
+    ${plantas.length? '<p style="margin-top:8px; font-size:13px"><b>📐 Plantas:</b> ' + plantas.map(p=> impressao? esc(p.nome||'planta') : `<a href="${p.url}" target="_blank" style="color:var(--azul); font-weight:700">${esc(p.nome||'planta')}</a>`).join(' · ') + '</p>' : ''}
+    ${fotos.length? `<div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px">${fotos.slice(0,12).map(f=>`<img src="${f}" style="height:${impressao? 90 : 64}px; border-radius:8px">`).join('')}</div>` : ''}`;
+}
+function imprimirFichaEvento(){
+  const ev = $('relEvento').value;
+  if(!ev){ toast('Escolha a montagem primeiro.'); return; }
+  const w = window.open('', '_blank');
+  if(!w){ toast('O navegador bloqueou a janela — libere o pop-up para imprimir.'); return; }
+  w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Ficha — ${esc(ev)}</title>
+    <style>body{font-family:'Segoe UI',Arial,sans-serif; color:#1c2740; padding:24px}
+    h1{font-size:18px; color:#2b3990} h1 span{color:#f58220} h2{font-size:15px; margin-top:4px}
+    table{width:100%; border-collapse:collapse; font-size:12.5px; margin-top:8px}
+    th{background:#f1f4fa; text-align:left; padding:7px; font-size:11px; text-transform:uppercase}
+    td{padding:7px; border-bottom:1px solid #dde3ee}
+    .sub{color:#6b7794; font-size:12.5px} img{border-radius:8px}</style></head><body>
+    <h1>REAJUSTE E REAPROVEITAMENTO <span>DE LONAS</span> — Grupo Tendas Plenart</h1>
+    <h2>📋 ${esc(ev)}</h2>
+    ${fichaEventoHTML(ev, true)}
+    <p class="sub" style="margin-top:16px">Gerado em ${fmtData(hoje())}.</p>
+    </body></html>`);
+  w.document.close();
+  setTimeout(()=>{ try{ w.print(); }catch(e){} }, 400);
+}
 function desenharConfig(){
   $('cfgCap').value = CFG.capacidade;
   $('cfgSabado').value = CFG.trabalhaSabado? 'sim':'nao';
+  $('cfgMeta').value = CFG.metaMensalM2 || '';
   $('listaEquipes').innerHTML = (CFG.equipes||[]).map(e=>`
     <div class="fila-item">
       <span>👷 <b>${esc(e.nome)}</b> — ${esc(e.vulcanizador||'?')} (vulcanizador) + ${esc(e.ajudante||'?')} (ajudante)</span>
@@ -1760,6 +1977,7 @@ function removerItemChecklist(i){
 function salvarCfgGeral(){
   CFG.capacidade = +$('cfgCap').value || 70;
   CFG.trabalhaSabado = $('cfgSabado').value === 'sim';
+  CFG.metaMensalM2 = +$('cfgMeta').value || 0;
   salvarLocal(); nuvemSalvarCfg(); desenharTudo();
   toast('⚙️ Configurações salvas.');
 }
