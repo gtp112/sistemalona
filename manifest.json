@@ -1,0 +1,14 @@
+{
+  "name": "Reajuste e Reaproveitamento de Lonas — Plenart",
+  "short_name": "Lonas Plenart",
+  "start_url": "./REAJUSTE_LONAS.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2b3990",
+  "description": "Controle de reajuste, produção e estoque de lonas do Grupo Tendas Plenart.",
+  "icons": [
+    { "src": "icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
