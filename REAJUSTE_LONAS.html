@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Reajuste de Lonas — Plenart</title>
+<style>
+:root{
+  --bg:#f4f6fa; --card:#ffffff; --line:#dde3ee; --ink:#1c2740; --muted:#6b7794;
+  --azul:#1d4ed8; --azul2:#eef3ff; --verde:#15803d; --verde2:#e8f7ee;
+  --amarelo:#b45309; --amarelo2:#fef3e0; --verm:#b91c1c; --verm2:#fdeaea;
+  --roxo:#6d28d9; --roxo2:#f1ebfd;
+}
+*{box-sizing:border-box; margin:0; padding:0; font-family:'Segoe UI',system-ui,Arial,sans-serif}
+body{background:var(--bg); color:var(--ink); min-height:100vh; padding-bottom:70px}
+button{cursor:pointer; font-family:inherit}
+input,select,textarea{font-family:inherit; font-size:15px; color:var(--ink)}
+
+header{background:#122047; color:#fff; padding:14px 16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; position:sticky; top:0; z-index:50}
+header h1{font-size:18px; letter-spacing:.3px}
+header .sub{font-size:12px; opacity:.75; width:100%}
+#nuvem{margin-left:auto; font-size:12px; background:rgba(255,255,255,.12); padding:5px 10px; border-radius:20px; white-space:nowrap}
+#nuvem.off{background:#b45309}
+
+nav{display:flex; gap:6px; background:#fff; border-bottom:1px solid var(--line); padding:8px 10px; overflow-x:auto; position:sticky; top:66px; z-index:49}
+nav button{border:1px solid var(--line); background:#fff; border-radius:20px; padding:8px 14px; font-size:13.5px; font-weight:600; color:var(--muted); white-space:nowrap}
+nav button.on{background:var(--azul); border-color:var(--azul); color:#fff}
+nav button .b{display:inline-block; min-width:18px; padding:0 5px; border-radius:10px; background:var(--verm); color:#fff; font-size:11px; margin-left:4px}
+
+main{max-width:1050px; margin:0 auto; padding:14px}
+.panel{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px}
+.panel h2{font-size:16px; margin-bottom:10px}
+.panel h3{font-size:14px; margin:12px 0 6px}
+.sub,small.sub{color:var(--muted); font-size:12.5px}
+
+.grid{display:grid; gap:10px}
+.g2{grid-template-columns:1fr 1fr}
+.g3{grid-template-columns:1fr 1fr 1fr}
+.g4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:760px){.g2,.g3,.g4{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.g3,.g4{grid-template-columns:1fr 1fr}.g2{grid-template-columns:1fr}}
+
+label.f{display:flex; flex-direction:column; gap:4px; font-size:12.5px; font-weight:600; color:var(--muted)}
+label.f input,label.f select,label.f textarea{border:1px solid var(--line); border-radius:9px; padding:9px 10px; background:#fff; width:100%}
+label.f textarea{min-height:60px; resize:vertical}
+label.chk{display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; padding:8px 0}
+label.chk input{width:19px; height:19px}
+
+.btn{border:none; border-radius:10px; padding:11px 18px; font-size:14.5px; font-weight:700}
+.btn.p{background:var(--azul); color:#fff}
+.btn.v{background:var(--verde); color:#fff}
+.btn.c{background:#fff; border:1px solid var(--line); color:var(--muted)}
+.btn.d{background:var(--verm2); color:var(--verm)}
+.btn.mini{padding:6px 12px; font-size:12.5px; border-radius:8px}
+.linha{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+
+.tag{display:inline-block; padding:3px 10px; border-radius:20px; font-size:11.5px; font-weight:700; white-space:nowrap}
+.tag.azul{background:var(--azul2); color:var(--azul)}
+.tag.verde{background:var(--verde2); color:var(--verde)}
+.tag.amarelo{background:var(--amarelo2); color:var(--amarelo)}
+.tag.verm{background:var(--verm2); color:var(--verm)}
+.tag.roxo{background:var(--roxo2); color:var(--roxo)}
+.tag.cinza{background:#eef1f6; color:var(--muted)}
+
+.card-serv{border:1px solid var(--line); border-radius:12px; padding:13px; margin-bottom:10px; background:#fff}
+.card-serv .topo{display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; align-items:flex-start}
+.card-serv .nome{font-size:15.5px; font-weight:800}
+.card-serv .det{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-top:10px; font-size:13px}
+.card-serv .det b{display:block; font-size:11px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.3px}
+.card-serv .alerta{margin-top:9px; background:var(--verm2); color:var(--verm); border-radius:8px; padding:7px 10px; font-size:12.5px; font-weight:600}
+.card-serv .aviso{margin-top:9px; background:var(--amarelo2); color:var(--amarelo); border-radius:8px; padding:7px 10px; font-size:12.5px; font-weight:600}
+.card-serv .acoes{display:flex; gap:8px; flex-wrap:wrap; margin-top:11px}
+
+.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:14px}
+.kpi{background:#fff; border:1px solid var(--line); border-radius:12px; padding:13px}
+.kpi .n{font-size:24px; font-weight:800}
+.kpi .t{font-size:12px; color:var(--muted); font-weight:600; margin-top:3px}
+.kpi.verde .n{color:var(--verde)} .kpi.verm .n{color:var(--verm)} .kpi.azul .n{color:var(--azul)} .kpi.amarelo .n{color:var(--amarelo)}
+
+table.tb{width:100%; border-collapse:collapse; font-size:13px}
+table.tb th{background:#f1f4fa; text-align:left; padding:8px; font-size:11.5px; text-transform:uppercase; color:var(--muted); letter-spacing:.3px}
+table.tb td{padding:8px; border-bottom:1px solid var(--line)}
+.tbwrap{overflow-x:auto}
+
+.previsao-box{background:var(--azul2); border-radius:10px; padding:11px 13px; font-size:13.5px; line-height:1.5}
+.previsao-box b{font-size:16px}
+
+.vazio{text-align:center; color:var(--muted); padding:30px 10px; font-size:14px}
+
+#modal{position:fixed; inset:0; background:rgba(10,18,40,.55); display:none; z-index:100; padding:12px; overflow-y:auto}
+#modal.on{display:flex; align-items:flex-start; justify-content:center}
+#modal .box{background:#fff; border-radius:16px; padding:18px; width:100%; max-width:760px; margin:20px 0}
+#modal .box h2{display:flex; justify-content:space-between; align-items:center}
+#modal .fechar{border:none; background:#eef1f6; color:var(--muted); border-radius:50%; width:32px; height:32px; font-size:16px; font-weight:800}
+
+#toast{position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:#122047; color:#fff; padding:11px 18px; border-radius:10px; font-size:13.5px; display:none; z-index:200; max-width:92vw; text-align:center}
+
+.filtros{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px}
+.filtros select,.filtros input{border:1px solid var(--line); border-radius:9px; padding:8px 10px; font-size:13.5px; background:#fff}
+
+.prog{height:8px; background:#e8ecf4; border-radius:6px; overflow:hidden; margin-top:6px}
+.prog i{display:block; height:100%; background:var(--azul)}
+
+.eq-bloco{border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:12px}
+.eq-bloco h3{margin:0 0 4px}
+.fila-item{display:flex; gap:10px; align-items:center; padding:9px 0; border-bottom:1px dashed var(--line); font-size:13.5px; flex-wrap:wrap}
+.fila-item:last-child{border-bottom:none}
+.fila-item .ord{background:var(--azul); color:#fff; border-radius:50%; min-width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px}
+.fila-item .per{margin-left:auto; font-weight:700; color:var(--azul); white-space:nowrap}
+
+@media print{
+  header,nav,.btn,.acoes,.filtros,#nuvem{display:none !important}
+  body{background:#fff; padding:0}
+  .panel,.card-serv,.kpi{border-color:#bbb; break-inside:avoid}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🟦 REAJUSTE E REAPROVEITAMENTO DE LONAS</h1>
+  <span id="nuvem" class="off">☁ conectando…</span>
+  <span class="sub">Grupo Tendas Plenart — setor de vulcanização · capacidade <b id="capHeader">70</b> m²/dia por equipe</span>
+</header>
+
+<nav>
+  <button data-aba="servicos" class="on" onclick="irAba('servicos')">📋 Serviços</button>
+  <button data-aba="planejamento" onclick="irAba('planejamento')">📅 Planejamento</button>
+  <button data-aba="reposicoes" onclick="irAba('reposicoes')">🧵 Reposições <span id="badgeRepo" class="b" style="display:none">0</span></button>
+  <button data-aba="relatorio" onclick="irAba('relatorio')">📊 Relatório</button>
+  <button data-aba="config" onclick="irAba('config')">⚙️ Configurações</button>
+</nav>
+
+<main>
+
+<!-- ============ ABA SERVIÇOS ============ -->
+<section id="aba-servicos">
+  <div class="kpis" id="kpisServicos"></div>
+  <div class="linha" style="margin-bottom:12px">
+    <button class="btn p" onclick="abrirForm()">➕ Novo serviço</button>
+  </div>
+  <div class="filtros">
+    <select id="fStatus" onchange="desenharServicos()">
+      <option value="">Todos os status</option>
+      <option value="PROGRAMADO">Programado</option>
+      <option value="EM_ANDAMENTO">Em andamento</option>
+      <option value="CONCLUIDO">Concluído</option>
+    </select>
+    <select id="fTipo" onchange="desenharServicos()"></select>
+    <select id="fEquipe" onchange="desenharServicos()"></select>
+    <input id="fBusca" placeholder="🔎 buscar lona ou montagem…" oninput="desenharServicos()" style="flex:1; min-width:170px">
+  </div>
+  <div id="listaServicos"></div>
+</section>
+
+<!-- ============ ABA PLANEJAMENTO ============ -->
+<section id="aba-planejamento" style="display:none">
+  <div class="panel">
+    <h2>📅 Fila de produção por equipe</h2>
+    <p class="sub">Os serviços programados e em andamento entram na fila da equipe, na ordem da data do serviço. A previsão usa a capacidade de <b><span class="capTexto">70</span> m² por dia</b> ajustada pelo fator do tipo de serviço, pulando domingo<span id="txtSabado"></span>.</p>
+  </div>
+  <div id="listaFila"></div>
+</section>
+
+<!-- ============ ABA REPOSIÇÕES ============ -->
+<section id="aba-reposicoes" style="display:none">
+  <div class="panel">
+    <h2>🧵 Reposições de lona</h2>
+    <p class="sub">Toda lona que foi desviada da aplicação prevista para atender outra montagem precisa ter a reposição programada aqui — assim nenhuma montagem fica sem lona.</p>
+  </div>
+  <div id="listaRepos"></div>
+</section>
+
+<!-- ============ ABA RELATÓRIO ============ -->
+<section id="aba-relatorio" style="display:none">
+  <div class="filtros">
+    <input type="month" id="relMes" onchange="desenharRelatorio()">
+    <button class="btn c mini" onclick="document.getElementById('relMes').value=''; desenharRelatorio()">Tudo</button>
+    <button class="btn c mini" onclick="window.print()">🖨 Imprimir</button>
+  </div>
+  <div class="kpis" id="kpisRel"></div>
+  <div class="panel">
+    <h2>Previsto × Realizado por tipo de serviço</h2>
+    <p class="sub">Só entram os serviços concluídos com o tempo utilizado informado.</p>
+    <div class="tbwrap"><table class="tb" id="tbTipos"></table></div>
+  </div>
+  <div class="panel">
+    <h2>Serviços concluídos</h2>
+    <div class="tbwrap"><table class="tb" id="tbConcluidos"></table></div>
+  </div>
+</section>
+
+<!-- ============ ABA CONFIG ============ -->
+<section id="aba-config" style="display:none">
+  <div class="panel">
+    <h2>⚙️ Capacidade de produção</h2>
+    <div class="grid g3">
+      <label class="f">Capacidade por equipe (m²/dia)<input type="number" id="cfgCap" min="1" step="1"></label>
+      <label class="f">Trabalha no sábado?<select id="cfgSabado"><option value="sim">Sim</option><option value="nao">Não</option></select></label>
+    </div>
+    <p class="sub" style="margin-top:8px">Referência: com 70 m²/dia, uma produção de 350 m² leva 5 dias de trabalho para uma equipe (1 vulcanizador + 1 ajudante).</p>
+    <button class="btn v" style="margin-top:10px" onclick="salvarCfgGeral()">💾 Salvar</button>
+  </div>
+
+  <div class="panel">
+    <h2>👷 Equipes de vulcanização</h2>
+    <div id="listaEquipes"></div>
+    <div class="grid g3" style="margin-top:10px">
+      <label class="f">Nome da equipe<input id="eqNome" placeholder="Equipe 2"></label>
+      <label class="f">Vulcanizador<input id="eqVulc" placeholder="nome"></label>
+      <label class="f">Ajudante<input id="eqAju" placeholder="nome"></label>
+    </div>
+    <button class="btn p mini" style="margin-top:8px" onclick="addEquipe()">➕ Adicionar equipe</button>
+  </div>
+
+  <div class="panel">
+    <h2>🔧 Tipos de serviço e fator de complexidade</h2>
+    <p class="sub">O fator ajusta a capacidade: fator 1,00 = rende os <span class="capTexto">70</span> m²/dia inteiros; fator 0,70 = serviço mais complexo, rende 70% disso. Reparos, reajustes, peças anguladas, ilhós, reforços e acabamentos especiais rendem menos que confecção corrida.</p>
+    <div class="tbwrap"><table class="tb" id="tbTiposCfg"></table></div>
+    <div class="grid g2" style="margin-top:10px">
+      <label class="f">Novo tipo de serviço<input id="tpNome" placeholder="ex.: Emenda especial"></label>
+      <label class="f">Fator (0,10 a 1,00)<input id="tpFator" type="number" step="0.05" min="0.1" max="1" value="0.8"></label>
+    </div>
+    <button class="btn p mini" style="margin-top:8px" onclick="addTipo()">➕ Adicionar tipo</button>
+  </div>
+</section>
+
+</main>
+
+<!-- ============ MODAL DO SERVIÇO ============ -->
+<div id="modal">
+  <div class="box">
+    <h2><span id="mTitulo">Novo serviço</span> <button class="fechar" onclick="fecharForm()">✕</button></h2>
+
+    <h3 style="margin-top:14px">1 · Lona utilizada</h3>
+    <div class="grid g2">
+      <label class="f">Identificação da lona *<input id="mLona" placeholder="ex.: LONA PIRAMIDAL 10x10 — Nº 042"></label>
+      <label class="f">Aplicação prevista (de onde a lona veio / para que era destinada) *<input id="mAplicacao" placeholder="ex.: Tenda 10x10 — estoque galpão"></label>
+    </div>
+    <div class="grid g3" style="margin-top:10px">
+      <label class="f">Medida original — largura (m)<input id="mOrigL" type="number" step="0.01" min="0" oninput="calcM2('Orig')"></label>
+      <label class="f">Medida original — comprimento (m)<input id="mOrigC" type="number" step="0.01" min="0" oninput="calcM2('Orig')"></label>
+      <label class="f">Medida original (m²)<input id="mOrigM2" type="number" step="0.01" min="0"></label>
+    </div>
+
+    <h3>2 · Reajuste e destino</h3>
+    <div class="grid g3">
+      <label class="f">Nova medida — largura (m)<input id="mNovaL" type="number" step="0.01" min="0" oninput="calcM2('Nova')"></label>
+      <label class="f">Nova medida — comprimento (m)<input id="mNovaC" type="number" step="0.01" min="0" oninput="calcM2('Nova')"></label>
+      <label class="f">Nova medida (m²)<input id="mNovaM2" type="number" step="0.01" min="0" oninput="sugerirMetragem()"></label>
+    </div>
+    <div class="grid g2" style="margin-top:10px">
+      <label class="f">Montagem que será atendida *<input id="mMontagem" placeholder="ex.: Evento Casa Shopping — Tenda 8x8"></label>
+      <label class="f">Data do serviço (início) *<input id="mData" type="date"></label>
+    </div>
+
+    <h3>3 · Serviço e previsão</h3>
+    <div class="grid g3">
+      <label class="f">Tipo de serviço *<select id="mTipo" onchange="atualizarPrevisao()"></select></label>
+      <label class="f">Metragem total do serviço (m²) *<input id="mMetragem" type="number" step="0.01" min="0" oninput="atualizarPrevisao()"></label>
+      <label class="f">Equipe responsável *<select id="mEquipe"></select></label>
+    </div>
+    <div class="previsao-box" id="mPrevisaoBox" style="margin-top:10px">Informe a metragem e o tipo para calcular a previsão.</div>
+    <label class="f" style="margin-top:10px">Dias previstos (pode ajustar na mão)<input id="mDias" type="number" step="0.5" min="0"></label>
+
+    <h3>4 · Reposição da lona</h3>
+    <label class="chk"><input type="checkbox" id="mRepoPrecisa" onchange="mostrarRepo()"> Precisa produzir uma lona nova para repor a aplicação prevista</label>
+    <div id="mRepoCampos" class="grid g2" style="display:none">
+      <label class="f">Prazo para a reposição ficar pronta<input id="mRepoPrazo" type="date"></label>
+      <label class="f">Situação da reposição<select id="mRepoStatus">
+        <option value="PENDENTE">Pendente (ainda não começou)</option>
+        <option value="EM_PRODUCAO">Em produção</option>
+        <option value="CONCLUIDA">Concluída</option>
+      </select></label>
+    </div>
+
+    <h3>5 · Execução (preencher quando rodar / terminar)</h3>
+    <div class="grid g3">
+      <label class="f">Status<select id="mStatus">
+        <option value="PROGRAMADO">Programado</option>
+        <option value="EM_ANDAMENTO">Em andamento</option>
+        <option value="CONCLUIDO">Concluído</option>
+      </select></label>
+      <label class="f">Data de conclusão<input id="mFim" type="date"></label>
+      <label class="f">Tempo utilizado (dias)<input id="mTempoReal" type="number" step="0.5" min="0" placeholder="ex.: 4,5"></label>
+    </div>
+    <label class="f" style="margin-top:10px">Observações<textarea id="mObs" placeholder="detalhes do serviço, acabamentos, ilhós, reforços…"></textarea></label>
+
+    <div class="linha" style="margin-top:16px">
+      <button class="btn v" onclick="salvarServico()">💾 Salvar serviço</button>
+      <button class="btn c" onclick="fecharForm()">Cancelar</button>
+      <button class="btn d" id="mExcluir" style="display:none; margin-left:auto" onclick="excluirServico()">🗑 Excluir</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* =================== SUPABASE (projeto novo da Central) =================== */
+const NUVEM = {
+  url: 'https://isnczssssikqjukpecsf.supabase.co',
+  key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlzbmN6c3Nzc2lrcWp1a3BlY3NmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzNzQ0NDYsImV4cCI6MjEwNjk1MDQ0Nn0.k4VNcRSlP6rrhw22zgDnWbZkZw-eaTjt2iZccsC703E'
+};
+const TAB = 'lonas_reajustes';
+const TABCFG = 'lonas_reajustes_config';
+let sb = null;
+
+/* =================== ESTADO =================== */
+const LS = 'reajuste_lonas_v1';
+let SERVICOS = {};   // id -> registro
+let CFG = cfgPadrao();
+let editandoId = null;
+
+function cfgPadrao(){
+  return {
+    capacidade: 70,
+    trabalhaSabado: true,
+    equipes: [
+      {id:'eq1', nome:'Equipe 1', vulcanizador:'Patricia', ajudante:'Kaique'}
+    ],
+    tipos: [
+      {id:'CONFECCAO',  nome:'Confecção de lona nova',  fator:1.00},
+      {id:'REAJUSTE',   nome:'Reajuste de medida',       fator:0.85},
+      {id:'REPARO',     nome:'Reparo',                   fator:0.70},
+      {id:'ANGULADA',   nome:'Peça angulada',            fator:0.75},
+      {id:'ILHOS',      nome:'Aplicação de ilhós',       fator:0.80},
+      {id:'REFORCO',    nome:'Reforço',                  fator:0.80},
+      {id:'ACABAMENTO', nome:'Acabamento especial',      fator:0.70}
+    ]
+  };
+}
+
+/* =================== CONTAS (puras, testáveis) =================== */
+function round2(n){ return Math.round((+n + Number.isFinite(+n)*0) * 100) / 100; }
+function fatorDoTipo(tipoId, cfg){
+  const t = (cfg.tipos||[]).find(t=>t.id===tipoId);
+  return t ? +t.fator : 1;
+}
+/* dias previstos = metragem / (capacidade × fator) */
+function calcDiasPrevistos(metragem, tipoId, cfg){
+  const cap = (+cfg.capacidade || 70) * fatorDoTipo(tipoId, cfg);
+  if(!(+metragem > 0) || !(cap > 0)) return 0;
+  return Math.round((metragem / cap) * 10) / 10;
+}
+/* soma N dias de trabalho a partir de uma data, pulando domingo (e sábado se configurado) */
+function dataFimPrevista(iniISO, dias, cfg){
+  if(!iniISO || !(dias > 0)) return iniISO || '';
+  let d = new Date(iniISO + 'T12:00:00');
+  let uteis = Math.max(1, Math.ceil(dias));
+  // a data de início conta como 1º dia, se for dia útil
+  const util = dt => dt.getDay() !== 0 && (cfg.trabalhaSabado || dt.getDay() !== 6);
+  while(!util(d)) d.setDate(d.getDate()+1);
+  let usados = 1;
+  while(usados < uteis){
+    d.setDate(d.getDate()+1);
+    if(util(d)) usados++;
+  }
+  return d.toISOString().slice(0,10);
+}
+function proximoDiaUtil(iso, cfg){
+  let d = new Date(iso + 'T12:00:00');
+  d.setDate(d.getDate()+1);
+  const util = dt => dt.getDay() !== 0 && (cfg.trabalhaSabado || dt.getDay() !== 6);
+  while(!util(d)) d.setDate(d.getDate()+1);
+  return d.toISOString().slice(0,10);
+}
+function produtividade(s){
+  const t = +s.tempoReal;
+  if(s.status !== 'CONCLUIDO' || !(t > 0) || !(+s.metragem > 0)) return null;
+  return Math.round((s.metragem / t) * 10) / 10; // m²/dia
+}
+function desvioPrazo(s){ // + = levou mais que o previsto
+  const t = +s.tempoReal, p = +s.dias;
+  if(s.status !== 'CONCLUIDO' || !(t > 0) || !(p > 0)) return null;
+  return Math.round((t - p) * 10) / 10;
+}
+function precisaAlertaReposicao(s){
+  // lona desviada: aplicação prevista diferente da montagem atendida, sem reposição programada
+  const a = (s.aplicacao||'').trim().toUpperCase();
+  const m = (s.montagem||'').trim().toUpperCase();
+  if(!a || !m || a === m) return false;
+  return !(s.repo && s.repo.precisa);
+}
+function repoAtrasada(s, hojeISO){
+  if(!s.repo || !s.repo.precisa || s.repo.status === 'CONCLUIDA') return false;
+  return !!(s.repo.prazo && s.repo.prazo < hojeISO);
+}
+
+/* =================== UTIL =================== */
+const $ = id => document.getElementById(id);
+function hoje(){ return new Date().toISOString().slice(0,10); }
+function fmtData(iso){ if(!iso) return '—'; const [a,m,d] = iso.split('-'); return d+'/'+m+'/'+a.slice(2); }
+function fmtNum(n){ return (+n||0).toLocaleString('pt-BR',{maximumFractionDigits:1}); }
+function esc(t){ return String(t==null?'':t).replace(/[<>&"]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+function uid(){ return 'srv_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function toast(t){ const el=$('toast'); el.textContent=t; el.style.display='block'; clearTimeout(toast._t); toast._t=setTimeout(()=>el.style.display='none', 3200); }
+function nomeEquipe(id){ const e=(CFG.equipes||[]).find(e=>e.id===id); if(!e) return '—'; let n=e.nome; const p=[e.vulcanizador,e.ajudante].filter(Boolean).join(' + '); return p? n+' ('+p+')' : n; }
+function nomeTipo(id){ const t=(CFG.tipos||[]).find(t=>t.id===id); return t? t.nome : id || '—'; }
+
+/* =================== ARMAZENAMENTO LOCAL =================== */
+function salvarLocal(){
+  try{ localStorage.setItem(LS, JSON.stringify({servicos:SERVICOS, cfg:CFG})); }catch(e){}
+}
+function carregarLocal(){
+  try{
+    const j = JSON.parse(localStorage.getItem(LS) || 'null');
+    if(j){ SERVICOS = j.servicos || {}; if(j.cfg) CFG = Object.assign(cfgPadrao(), j.cfg); }
+  }catch(e){}
+}
+
+/* =================== SUPABASE SYNC =================== */
+function setNuvem(ok, txt){
+  const el = $('nuvem');
+  el.textContent = txt;
+  el.className = ok ? '' : 'off';
+}
+async function nuvemIniciar(){
+  try{
+    sb = window.supabase.createClient(NUVEM.url, NUVEM.key);
+    const r = await sb.from(TAB).select('id,dados,atualizado_em');
+    if(r.error) throw r.error;
+    (r.data||[]).forEach(l=>{
+      const loc = SERVICOS[l.id];
+      if(!loc || (l.dados && l.dados.atualizadoEm > (loc.atualizadoEm||''))) SERVICOS[l.id] = l.dados;
+    });
+    const c = await sb.from(TABCFG).select('chave,dados');
+    if(!c.error){
+      const row = (c.data||[]).find(x=>x.chave==='cfg');
+      if(row && row.dados) CFG = Object.assign(cfgPadrao(), row.dados);
+    }
+    salvarLocal();
+    setNuvem(true, '☁ sincronizado');
+    // o que ficou guardado só no aparelho sobe agora
+    for(const id in SERVICOS){ if(SERVICOS[id].__pendente){ delete SERVICOS[id].__pendente; nuvemSalvarServico(SERVICOS[id]); } }
+    // tempo real
+    sb.channel('rt-lonas')
+      .on('postgres_changes', {event:'*', schema:'public', table:TAB}, p=>{
+        if(p.eventType==='DELETE'){ delete SERVICOS[p.old.id]; }
+        else if(p.new && p.new.dados){
+          const loc = SERVICOS[p.new.id];
+          if(!loc || (p.new.dados.atualizadoEm||'') >= (loc.atualizadoEm||'')) SERVICOS[p.new.id] = p.new.dados;
+        }
+        salvarLocal(); desenharTudo();
+      })
+      .on('postgres_changes', {event:'*', schema:'public', table:TABCFG}, p=>{
+        if(p.new && p.new.chave==='cfg' && p.new.dados){ CFG = Object.assign(cfgPadrao(), p.new.dados); salvarLocal(); desenharTudo(); }
+      })
+      .subscribe();
+    desenharTudo();
+  }catch(e){
+    console.warn('nuvem', e);
+    setNuvem(false, '☁ sem conexão — salvando no aparelho');
+  }
+}
+async function nuvemSalvarServico(s){
+  if(!sb) { s.__pendente = true; salvarLocal(); return; }
+  try{
+    const r = await sb.from(TAB).upsert({id:s.id, dados:s, atualizado_em:new Date().toISOString()});
+    if(r.error) throw r.error;
+  }catch(e){ console.warn(e); s.__pendente = true; salvarLocal(); setNuvem(false,'☁ sem conexão — salvando no aparelho'); }
+}
+async function nuvemExcluir(id){
+  if(!sb) return;
+  try{ await sb.from(TAB).delete().eq('id', id); }catch(e){ console.warn(e); }
+}
+async function nuvemSalvarCfg(){
+  if(!sb) return;
+  try{ await sb.from(TABCFG).upsert({chave:'cfg', dados:CFG, atualizado_em:new Date().toISOString()}); }catch(e){ console.warn(e); }
+}
+
+/* =================== ABAS =================== */
+function irAba(a){
+  document.querySelectorAll('main > section').forEach(s=>s.style.display='none');
+  $('aba-'+a).style.display='block';
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on', b.dataset.aba===a));
+  desenharTudo();
+}
+
+/* =================== FORMULÁRIO =================== */
+function preencherSelectTipos(sel, comVazio){
+  sel.innerHTML = (comVazio? '<option value="">Todos os tipos</option>' : '') +
+    (CFG.tipos||[]).map(t=>`<option value="${t.id}">${esc(t.nome)}</option>`).join('');
+}
+function preencherSelectEquipes(sel, comVazio){
+  sel.innerHTML = (comVazio? '<option value="">Todas as equipes</option>' : '') +
+    (CFG.equipes||[]).map(e=>`<option value="${e.id}">${esc(nomeEquipe(e.id))}</option>`).join('');
+}
+function calcM2(qual){
+  const l = +$('m'+qual+'L').value, c = +$('m'+qual+'C').value;
+  if(l>0 && c>0){ $('m'+qual+'M2').value = round2(l*c); if(qual==='Nova') sugerirMetragem(); }
+}
+function sugerirMetragem(){
+  if(!$('mMetragem').value){ $('mMetragem').value = $('mNovaM2').value; }
+  atualizarPrevisao();
+}
+function atualizarPrevisao(){
+  const m = +$('mMetragem').value, tipo = $('mTipo').value;
+  const f = fatorDoTipo(tipo, CFG);
+  const capEf = round2((+CFG.capacidade||70) * f);
+  const dias = calcDiasPrevistos(m, tipo, CFG);
+  if(dias > 0){
+    $('mDias').value = dias;
+    const fim = dataFimPrevista($('mData').value || hoje(), dias, CFG);
+    $('mPrevisaoBox').innerHTML =
+      `Capacidade para este serviço: <b>${fmtNum(capEf)} m²/dia</b> (${fmtNum(CFG.capacidade)} × fator ${String(f).replace('.',',')})<br>` +
+      `Previsão: <b>${fmtNum(dias)} dia(s)</b> de trabalho` +
+      ($('mData').value ? ` — conclusão prevista em <b>${fmtData(fim)}</b>` : '');
+  } else {
+    $('mPrevisaoBox').textContent = 'Informe a metragem e o tipo para calcular a previsão.';
+  }
+}
+function mostrarRepo(){
+  $('mRepoCampos').style.display = $('mRepoPrecisa').checked ? 'grid' : 'none';
+}
+function abrirForm(id){
+  editandoId = id || null;
+  preencherSelectTipos($('mTipo'), false);
+  preencherSelectEquipes($('mEquipe'), false);
+  $('mTitulo').textContent = id ? 'Editar serviço' : 'Novo serviço';
+  $('mExcluir').style.display = id ? 'inline-block' : 'none';
+  const s = id ? SERVICOS[id] : null;
+  $('mLona').value = s? s.lona : '';
+  $('mAplicacao').value = s? s.aplicacao : '';
+  $('mOrigL').value = s&&s.origL||''; $('mOrigC').value = s&&s.origC||''; $('mOrigM2').value = s&&s.origM2||'';
+  $('mNovaL').value = s&&s.novaL||''; $('mNovaC').value = s&&s.novaC||''; $('mNovaM2').value = s&&s.novaM2||'';
+  $('mMontagem').value = s? s.montagem : '';
+  $('mData').value = s? s.data : hoje();
+  $('mTipo').value = s? s.tipo : (CFG.tipos[0]&&CFG.tipos[0].id||'');
+  $('mMetragem').value = s? s.metragem : '';
+  $('mEquipe').value = s? s.equipe : (CFG.equipes[0]&&CFG.equipes[0].id||'');
+  $('mDias').value = s? s.dias : '';
+  $('mRepoPrecisa').checked = !!(s&&s.repo&&s.repo.precisa);
+  $('mRepoPrazo').value = s&&s.repo&&s.repo.prazo||'';
+  $('mRepoStatus').value = s&&s.repo&&s.repo.status||'PENDENTE';
+  $('mStatus').value = s? s.status : 'PROGRAMADO';
+  $('mFim').value = s&&s.fim||'';
+  $('mTempoReal').value = s&&s.tempoReal||'';
+  $('mObs').value = s&&s.obs||'';
+  mostrarRepo();
+  if(!s) $('mPrevisaoBox').textContent = 'Informe a metragem e o tipo para calcular a previsão.';
+  else atualizarPrevisao();
+  if(s && s.dias) $('mDias').value = s.dias; // respeita ajuste manual
+  $('modal').classList.add('on');
+}
+function fecharForm(){ $('modal').classList.remove('on'); editandoId=null; }
+function salvarServico(){
+  const lona = $('mLona').value.trim();
+  const montagem = $('mMontagem').value.trim();
+  const metragem = +$('mMetragem').value;
+  if(!lona){ toast('Preencha a identificação da lona.'); return; }
+  if(!montagem){ toast('Preencha a montagem que será atendida.'); return; }
+  if(!(metragem>0)){ toast('Preencha a metragem total do serviço.'); return; }
+  if(!$('mData').value){ toast('Preencha a data do serviço.'); return; }
+  const id = editandoId || uid();
+  const antes = SERVICOS[id] || {};
+  const precisa = $('mRepoPrecisa').checked;
+  const s = {
+    id,
+    lona, aplicacao: $('mAplicacao').value.trim(),
+    origL:+$('mOrigL').value||null, origC:+$('mOrigC').value||null, origM2:+$('mOrigM2').value||null,
+    novaL:+$('mNovaL').value||null, novaC:+$('mNovaC').value||null, novaM2:+$('mNovaM2').value||null,
+    montagem,
+    data: $('mData').value,
+    tipo: $('mTipo').value,
+    metragem: round2(metragem),
+    equipe: $('mEquipe').value,
+    dias: +$('mDias').value || calcDiasPrevistos(metragem, $('mTipo').value, CFG),
+    repo: { precisa, prazo: precisa? $('mRepoPrazo').value : '', status: precisa? $('mRepoStatus').value : '' },
+    status: $('mStatus').value,
+    fim: $('mFim').value || '',
+    tempoReal: +$('mTempoReal').value || null,
+    obs: $('mObs').value.trim(),
+    criadoEm: antes.criadoEm || new Date().toISOString(),
+    atualizadoEm: new Date().toISOString()
+  };
+  if(s.status==='CONCLUIDO' && !s.fim) s.fim = hoje();
+  SERVICOS[id] = s;
+  salvarLocal();
+  nuvemSalvarServico(s);
+  fecharForm();
+  desenharTudo();
+  toast('✅ Serviço salvo.');
+}
+function excluirServico(){
+  if(!editandoId) return;
+  if(!confirm('Excluir este serviço? Não dá para desfazer.')) return;
+  const id = editandoId;
+  delete SERVICOS[id];
+  salvarLocal(); nuvemExcluir(id);
+  fecharForm(); desenharTudo();
+  toast('🗑 Serviço excluído.');
+}
+function concluirRapido(id){
+  const s = SERVICOS[id]; if(!s) return;
+  abrirForm(id);
+  $('mStatus').value = 'CONCLUIDO';
+  if(!$('mFim').value) $('mFim').value = hoje();
+  $('mTempoReal').focus();
+  toast('Informe o tempo utilizado (dias) e salve.');
+}
+function marcarRepoConcluida(id){
+  const s = SERVICOS[id]; if(!s || !s.repo) return;
+  s.repo.status = 'CONCLUIDA';
+  s.atualizadoEm = new Date().toISOString();
+  salvarLocal(); nuvemSalvarServico(s); desenharTudo();
+  toast('🧵 Reposição marcada como concluída.');
+}
+
+/* =================== DESENHO =================== */
+function listaOrdenada(){
+  return Object.values(SERVICOS).sort((a,b)=> (b.data||'').localeCompare(a.data||'') || (b.criadoEm||'').localeCompare(a.criadoEm||''));
+}
+function desenharTudo(){
+  $('capHeader').textContent = fmtNum(CFG.capacidade);
+  document.querySelectorAll('.capTexto').forEach(e=>e.textContent = fmtNum(CFG.capacidade));
+  $('txtSabado').textContent = CFG.trabalhaSabado ? '' : ' e sábado';
+  preencherSelectTipos($('fTipo'), true);
+  preencherSelectEquipes($('fEquipe'), true);
+  desenharServicos();
+  desenharFila();
+  desenharRepos();
+  desenharRelatorio();
+  desenharConfig();
+  // badge reposições
+  const h = hoje();
+  const pend = listaOrdenada().filter(s => (s.repo&&s.repo.precisa&&s.repo.status!=='CONCLUIDA') || precisaAlertaReposicao(s));
+  const atras = pend.filter(s=>repoAtrasada(s,h) || precisaAlertaReposicao(s));
+  const b = $('badgeRepo');
+  if(pend.length){ b.style.display='inline-block'; b.textContent = pend.length; b.style.background = atras.length? 'var(--verm)':'var(--amarelo)'; }
+  else b.style.display='none';
+}
+
+function tagStatus(st){
+  if(st==='CONCLUIDO') return '<span class="tag verde">✔ Concluído</span>';
+  if(st==='EM_ANDAMENTO') return '<span class="tag azul">▶ Em andamento</span>';
+  return '<span class="tag cinza">● Programado</span>';
+}
+function desenharServicos(){
+  const h = hoje();
+  const lista = listaOrdenada().filter(s=>{
+    if($('fStatus').value && s.status !== $('fStatus').value) return false;
+    if($('fTipo').value && s.tipo !== $('fTipo').value) return false;
+    if($('fEquipe').value && s.equipe !== $('fEquipe').value) return false;
+    const q = $('fBusca').value.trim().toUpperCase();
+    if(q && !((s.lona||'')+' '+(s.montagem||'')+' '+(s.aplicacao||'')).toUpperCase().includes(q)) return false;
+    return true;
+  });
+  // KPIs
+  const todos = listaOrdenada();
+  const abertos = todos.filter(s=>s.status!=='CONCLUIDO');
+  const m2Fila = abertos.reduce((t,s)=>t + (+s.metragem||0), 0);
+  const concl = todos.filter(s=>s.status==='CONCLUIDO');
+  const prods = concl.map(produtividade).filter(p=>p!=null);
+  const prodMedia = prods.length? Math.round(prods.reduce((a,b)=>a+b,0)/prods.length*10)/10 : 0;
+  $('kpisServicos').innerHTML = `
+    <div class="kpi azul"><div class="n">${abertos.length}</div><div class="t">Serviços na fila</div></div>
+    <div class="kpi"><div class="n">${fmtNum(m2Fila)} m²</div><div class="t">Metragem a produzir</div></div>
+    <div class="kpi verde"><div class="n">${concl.length}</div><div class="t">Concluídos</div></div>
+    <div class="kpi ${prodMedia && prodMedia < CFG.capacidade*0.7 ? 'amarelo':'verde'}"><div class="n">${prodMedia? fmtNum(prodMedia):'—'}</div><div class="t">Produtividade média (m²/dia)</div></div>`;
+
+  if(!lista.length){ $('listaServicos').innerHTML = '<div class="panel vazio">Nenhum serviço por aqui ainda. Clique em <b>➕ Novo serviço</b> para começar.</div>'; return; }
+  $('listaServicos').innerHTML = lista.map(s=>{
+    const fimPrev = dataFimPrevista(s.data, +s.dias||0, CFG);
+    const prod = produtividade(s);
+    const desv = desvioPrazo(s);
+    const alertaRepo = precisaAlertaReposicao(s);
+    const atras = repoAtrasada(s, h);
+    let extra = '';
+    if(alertaRepo) extra += `<div class="alerta">⚠ Lona desviada da aplicação prevista sem reposição programada — abra o serviço e marque a reposição.</div>`;
+    if(atras) extra += `<div class="alerta">⏰ Reposição atrasada — prazo era ${fmtData(s.repo.prazo)}.</div>`;
+    else if(s.repo && s.repo.precisa && s.repo.status!=='CONCLUIDA') extra += `<div class="aviso">🧵 Reposição ${s.repo.status==='EM_PRODUCAO'?'em produção':'pendente'}${s.repo.prazo? ' — prazo '+fmtData(s.repo.prazo):''}.</div>`;
+    return `<div class="card-serv">
+      <div class="topo">
+        <div>
+          <div class="nome">${esc(s.lona)}</div>
+          <small class="sub">${esc(nomeTipo(s.tipo))} · ${fmtNum(s.metragem)} m² · ${esc(nomeEquipe(s.equipe))}</small>
+        </div>
+        <div>${tagStatus(s.status)}</div>
+      </div>
+      <div class="det">
+        <div><b>Medida original</b>${s.origM2? fmtNum(s.origM2)+' m²'+(s.origL&&s.origC? ' ('+fmtNum(s.origL)+'×'+fmtNum(s.origC)+')':'') : '—'}</div>
+        <div><b>Nova medida</b>${s.novaM2? fmtNum(s.novaM2)+' m²'+(s.novaL&&s.novaC? ' ('+fmtNum(s.novaL)+'×'+fmtNum(s.novaC)+')':'') : '—'}</div>
+        <div><b>Aplicação prevista</b>${esc(s.aplicacao||'—')}</div>
+        <div><b>Montagem atendida</b>${esc(s.montagem||'—')}</div>
+        <div><b>Data do serviço</b>${fmtData(s.data)}</div>
+        <div><b>Previsão</b>${fmtNum(s.dias)} dia(s) — até ${fmtData(fimPrev)}</div>
+        ${s.status==='CONCLUIDO' ? `<div><b>Tempo utilizado</b>${s.tempoReal? fmtNum(s.tempoReal)+' dia(s)':'—'}</div>
+        <div><b>Produtividade</b>${prod!=null? fmtNum(prod)+' m²/dia' + (desv!=null? (desv>0? ' <span class="tag verm">+'+fmtNum(desv)+'d</span>' : desv<0? ' <span class="tag verde">'+fmtNum(desv)+'d</span>' : ' <span class="tag verde">no prazo</span>') : '') : '—'}</div>` : ''}
+      </div>
+      ${s.obs? `<div style="margin-top:8px; font-size:13px; color:var(--muted)">📝 ${esc(s.obs)}</div>`:''}
+      ${extra}
+      <div class="acoes">
+        <button class="btn c mini" onclick="abrirForm('${s.id}')">✏️ Editar</button>
+        ${s.status!=='CONCLUIDO'? `<button class="btn v mini" onclick="concluirRapido('${s.id}')">✔ Concluir</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function desenharFila(){
+  const porEq = {};
+  (CFG.equipes||[]).forEach(e=> porEq[e.id] = []);
+  listaOrdenada().filter(s=>s.status!=='CONCLUIDO')
+    .sort((a,b)=> (a.data||'').localeCompare(b.data||''))
+    .forEach(s=>{ (porEq[s.equipe] = porEq[s.equipe]||[]).push(s); });
+  const blocos = Object.keys(porEq).map(eq=>{
+    const fila = porEq[eq];
+    let cursor = null;
+    const itens = fila.map((s,i)=>{
+      let ini = s.data;
+      if(cursor && ini <= cursor) ini = proximoDiaUtil(cursor, CFG);
+      const fim = dataFimPrevista(ini, +s.dias||0, CFG);
+      cursor = fim;
+      return `<div class="fila-item">
+        <span class="ord">${i+1}</span>
+        <span><b>${esc(s.lona)}</b><br><small class="sub">${esc(nomeTipo(s.tipo))} · ${fmtNum(s.metragem)} m² · ${fmtNum(s.dias)} dia(s) · ${esc(s.montagem)}</small></span>
+        <span class="per">${fmtData(ini)} → ${fmtData(fim)}</span>
+      </div>`;
+    }).join('');
+    const m2 = fila.reduce((t,s)=>t+(+s.metragem||0),0);
+    const dias = fila.reduce((t,s)=>t+(+s.dias||0),0);
+    return `<div class="eq-bloco">
+      <h3>👷 ${esc(nomeEquipe(eq))}</h3>
+      <small class="sub">${fila.length} serviço(s) na fila · ${fmtNum(m2)} m² · ${fmtNum(dias)} dia(s) de trabalho${cursor? ' · fila termina em <b>'+fmtData(cursor)+'</b>':''}</small>
+      ${itens || '<div class="vazio" style="padding:14px">Fila vazia 🎉</div>'}
+    </div>`;
+  }).join('');
+  $('listaFila').innerHTML = blocos || '<div class="panel vazio">Cadastre uma equipe nas Configurações.</div>';
+}
+
+function desenharRepos(){
+  const h = hoje();
+  const comRepo = listaOrdenada().filter(s => (s.repo&&s.repo.precisa) || precisaAlertaReposicao(s));
+  if(!comRepo.length){ $('listaRepos').innerHTML = '<div class="panel vazio">Nenhuma reposição pendente. 👍</div>'; return; }
+  const peso = s => precisaAlertaReposicao(s)? 0 : repoAtrasada(s,h)? 1 : s.repo.status==='CONCLUIDA'? 3 : 2;
+  comRepo.sort((a,b)=> peso(a)-peso(b) || (a.repo&&a.repo.prazo||'9999').localeCompare(b.repo&&b.repo.prazo||'9999'));
+  $('listaRepos').innerHTML = comRepo.map(s=>{
+    const semProg = precisaAlertaReposicao(s);
+    const atras = repoAtrasada(s,h);
+    const st = semProg? '<span class="tag verm">⚠ SEM PROGRAMAÇÃO</span>'
+      : s.repo.status==='CONCLUIDA'? '<span class="tag verde">✔ Concluída</span>'
+      : atras? '<span class="tag verm">⏰ Atrasada</span>'
+      : s.repo.status==='EM_PRODUCAO'? '<span class="tag azul">▶ Em produção</span>'
+      : '<span class="tag amarelo">● Pendente</span>';
+    return `<div class="card-serv">
+      <div class="topo">
+        <div>
+          <div class="nome">${esc(s.lona)}</div>
+          <small class="sub">foi para: <b>${esc(s.montagem)}</b> · aplicação prevista: <b>${esc(s.aplicacao||'—')}</b></small>
+        </div>
+        <div>${st}</div>
+      </div>
+      <div class="det">
+        <div><b>Prazo da reposição</b>${s.repo&&s.repo.prazo? fmtData(s.repo.prazo):'—'}</div>
+        <div><b>Medida a repor</b>${s.origM2? fmtNum(s.origM2)+' m²':'—'}</div>
+        <div><b>Serviço de origem</b>${fmtData(s.data)} · ${esc(nomeTipo(s.tipo))}</div>
+      </div>
+      <div class="acoes">
+        <button class="btn c mini" onclick="abrirForm('${s.id}')">✏️ Abrir serviço</button>
+        ${s.repo&&s.repo.precisa&&s.repo.status!=='CONCLUIDA'? `<button class="btn v mini" onclick="marcarRepoConcluida('${s.id}')">✔ Reposição concluída</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function desenharRelatorio(){
+  const mes = $('relMes').value; // 'AAAA-MM' ou ''
+  const todos = listaOrdenada().filter(s=> !mes || (s.data||'').startsWith(mes) || (s.fim||'').startsWith(mes));
+  const concl = todos.filter(s=> s.status==='CONCLUIDO' && +s.tempoReal>0);
+  const m2Concl = concl.reduce((t,s)=>t+(+s.metragem||0),0);
+  const diasPrev = concl.reduce((t,s)=>t+(+s.dias||0),0);
+  const diasReal = concl.reduce((t,s)=>t+(+s.tempoReal||0),0);
+  const prodMedia = diasReal>0? Math.round(m2Concl/diasReal*10)/10 : 0;
+  const efic = diasReal>0 && CFG.capacidade>0 ? Math.round(prodMedia/CFG.capacidade*100) : 0;
+  $('kpisRel').innerHTML = `
+    <div class="kpi azul"><div class="n">${concl.length}</div><div class="t">Serviços concluídos${mes? ' no mês':''}</div></div>
+    <div class="kpi"><div class="n">${fmtNum(m2Concl)} m²</div><div class="t">Metragem produzida</div></div>
+    <div class="kpi"><div class="n">${fmtNum(diasPrev)}d → ${fmtNum(diasReal)}d</div><div class="t">Previsto → realizado</div></div>
+    <div class="kpi ${diasReal<=diasPrev?'verde':'verm'}"><div class="n">${diasPrev? (diasReal<=diasPrev?'✔':'+'+fmtNum(diasReal-diasPrev)+'d') : '—'}</div><div class="t">${diasReal<=diasPrev? 'Dentro do previsto':'Acima do previsto'}</div></div>
+    <div class="kpi ${efic>=90?'verde':efic>=70?'amarelo':'verm'}"><div class="n">${prodMedia? fmtNum(prodMedia):'—'}</div><div class="t">m²/dia real (${efic}% da capacidade)</div></div>`;
+
+  // por tipo
+  const porTipo = {};
+  concl.forEach(s=>{
+    const k = s.tipo||'?';
+    const o = porTipo[k] = porTipo[k] || {n:0, m2:0, prev:0, real:0};
+    o.n++; o.m2 += +s.metragem||0; o.prev += +s.dias||0; o.real += +s.tempoReal||0;
+  });
+  const linhas = Object.keys(porTipo).map(k=>{
+    const o = porTipo[k];
+    const prod = o.real>0? Math.round(o.m2/o.real*10)/10 : 0;
+    const dif = Math.round((o.real-o.prev)*10)/10;
+    return `<tr><td><b>${esc(nomeTipo(k))}</b></td><td>${o.n}</td><td>${fmtNum(o.m2)} m²</td><td>${fmtNum(o.prev)}d</td><td>${fmtNum(o.real)}d</td>
+      <td>${dif>0? '<span class="tag verm">+'+fmtNum(dif)+'d</span>' : dif<0? '<span class="tag verde">'+fmtNum(dif)+'d</span>' : '<span class="tag verde">no prazo</span>'}</td>
+      <td><b>${fmtNum(prod)}</b> m²/dia</td></tr>`;
+  }).join('');
+  $('tbTipos').innerHTML = `<tr><th>Tipo</th><th>Qtd</th><th>Metragem</th><th>Previsto</th><th>Realizado</th><th>Diferença</th><th>Produtividade</th></tr>` +
+    (linhas || '<tr><td colspan="7" class="vazio">Sem serviços concluídos ainda.</td></tr>');
+
+  $('tbConcluidos').innerHTML = `<tr><th>Lona</th><th>Tipo</th><th>Montagem</th><th>m²</th><th>Equipe</th><th>Prev.</th><th>Real</th><th>m²/dia</th></tr>` +
+    (concl.map(s=>{
+      const p = produtividade(s);
+      return `<tr><td>${esc(s.lona)}</td><td>${esc(nomeTipo(s.tipo))}</td><td>${esc(s.montagem)}</td><td>${fmtNum(s.metragem)}</td><td>${esc((CFG.equipes.find(e=>e.id===s.equipe)||{}).nome||'—')}</td><td>${fmtNum(s.dias)}d</td><td>${fmtNum(s.tempoReal)}d</td><td><b>${p!=null?fmtNum(p):'—'}</b></td></tr>`;
+    }).join('') || '<tr><td colspan="8" class="vazio">Sem serviços concluídos ainda.</td></tr>');
+}
+
+function desenharConfig(){
+  $('cfgCap').value = CFG.capacidade;
+  $('cfgSabado').value = CFG.trabalhaSabado? 'sim':'nao';
+  $('listaEquipes').innerHTML = (CFG.equipes||[]).map(e=>`
+    <div class="fila-item">
+      <span>👷 <b>${esc(e.nome)}</b> — ${esc(e.vulcanizador||'?')} (vulcanizador) + ${esc(e.ajudante||'?')} (ajudante)</span>
+      <button class="btn d mini" style="margin-left:auto" onclick="removerEquipe('${e.id}')">remover</button>
+    </div>`).join('') || '<div class="vazio" style="padding:10px">Nenhuma equipe cadastrada.</div>';
+  $('tbTiposCfg').innerHTML = `<tr><th>Tipo de serviço</th><th>Fator</th><th>Capacidade efetiva</th><th></th></tr>` +
+    (CFG.tipos||[]).map(t=>`<tr>
+      <td><b>${esc(t.nome)}</b></td>
+      <td><input type="number" step="0.05" min="0.1" max="1" value="${t.fator}" style="width:80px; border:1px solid var(--line); border-radius:7px; padding:5px 7px" onchange="mudarFator('${t.id}', this.value)"></td>
+      <td>${fmtNum(round2(CFG.capacidade*t.fator))} m²/dia</td>
+      <td><button class="btn d mini" onclick="removerTipo('${t.id}')">remover</button></td>
+    </tr>`).join('');
+}
+function salvarCfgGeral(){
+  CFG.capacidade = +$('cfgCap').value || 70;
+  CFG.trabalhaSabado = $('cfgSabado').value === 'sim';
+  salvarLocal(); nuvemSalvarCfg(); desenharTudo();
+  toast('⚙️ Configurações salvas.');
+}
+function addEquipe(){
+  const nome = $('eqNome').value.trim();
+  if(!nome){ toast('Dê um nome para a equipe.'); return; }
+  CFG.equipes.push({id:'eq_'+Date.now().toString(36), nome, vulcanizador:$('eqVulc').value.trim(), ajudante:$('eqAju').value.trim()});
+  $('eqNome').value=''; $('eqVulc').value=''; $('eqAju').value='';
+  salvarLocal(); nuvemSalvarCfg(); desenharTudo();
+}
+function removerEquipe(id){
+  if(Object.values(SERVICOS).some(s=>s.equipe===id && s.status!=='CONCLUIDO')){ toast('Essa equipe tem serviço na fila — conclua ou troque a equipe antes.'); return; }
+  if(!confirm('Remover a equipe?')) return;
+  CFG.equipes = CFG.equipes.filter(e=>e.id!==id);
+  salvarLocal(); nuvemSalvarCfg(); desenharTudo();
+}
+function addTipo(){
+  const nome = $('tpNome').value.trim();
+  const fator = +$('tpFator').value;
+  if(!nome){ toast('Dê um nome para o tipo.'); return; }
+  if(!(fator>=0.1 && fator<=1)){ toast('Fator entre 0,10 e 1,00.'); return; }
+  CFG.tipos.push({id:'tp_'+Date.now().toString(36), nome, fator});
+  $('tpNome').value='';
+  salvarLocal(); nuvemSalvarCfg(); desenharTudo();
+}
+function mudarFator(id, v){
+  const t = CFG.tipos.find(t=>t.id===id); if(!t) return;
+  const f = +String(v).replace(',','.');
+  if(f>=0.1 && f<=1){ t.fator = Math.round(f*100)/100; salvarLocal(); nuvemSalvarCfg(); desenharTudo(); }
+  else toast('Fator entre 0,10 e 1,00.');
+}
+function removerTipo(id){
+  if(Object.values(SERVICOS).some(s=>s.tipo===id)){ toast('Esse tipo já foi usado em serviços — não dá para remover.'); return; }
+  if(!confirm('Remover o tipo de serviço?')) return;
+  CFG.tipos = CFG.tipos.filter(t=>t.id!==id);
+  salvarLocal(); nuvemSalvarCfg(); desenharTudo();
+}
+
+/* =================== BOOT =================== */
+carregarLocal();
+desenharTudo();
+nuvemIniciar();
+</script>
+</body>
+</html>
