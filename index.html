@@ -432,6 +432,7 @@ table.tb td{padding:8px; border-bottom:1px solid var(--line)}
     <label class="f" style="margin-top:10px">📎 Projeto da lona (imagem ou PDF)<input type="file" id="mProjeto" accept="image/*,.pdf,application/pdf" onchange="pegarProjeto(this)"><span id="projNome" class="sub"></span></label>
     <div class="linha" style="margin-top:6px">
       <button type="button" class="btn c mini" onclick="alternarBiblioteca()">📚 escolher planta já usada</button>
+      <button type="button" class="btn d mini" id="btnRemProjeto" style="display:none" onclick="removerProjeto()">🗑 tirar o projeto</button>
     </div>
     <div id="bibPlantas" style="display:none; margin-top:8px; border:1px solid var(--line); border-radius:10px; padding:8px; max-height:220px; overflow-y:auto"></div>
     <div id="plantaBox" style="display:none; margin-top:10px; background:var(--azul2); border-radius:10px; padding:11px 13px">
@@ -760,12 +761,27 @@ function pegarFoto(qual, input){
   rd.readAsDataURL(f);
 }
 let PROJETO_TMP = null;
+let PROJETO_REMOVIDO = false;
+function mostrarBtnRemProjeto(){
+  const tem = !!(PROJETO_TMP || (editandoId && SERVICOS[editandoId] && SERVICOS[editandoId].projeto && !PROJETO_REMOVIDO));
+  $('btnRemProjeto').style.display = tem? 'inline-block' : 'none';
+}
+function removerProjeto(){
+  PROJETO_TMP = null;
+  PLANTA_LIDA = null;
+  PROJETO_REMOVIDO = true;
+  $('mProjeto').value = '';
+  $('projNome').textContent = '';
+  $('plantaBox').style.display = 'none';
+  mostrarBtnRemProjeto();
+  toast('🗑 Projeto tirado do serviço — salve para valer.');
+}
 function pegarProjeto(input){
   const f = input.files && input.files[0]; if(!f) return;
   if(f.type === 'application/pdf' || /\.pdf$/i.test(f.name)){
     if(f.size > 6*1024*1024){ toast('O PDF é muito grande (máximo 6 MB).'); input.value=''; return; }
     const rd = new FileReader();
-    rd.onload = () => { PROJETO_TMP = {url: rd.result, nome: f.name, tipo:'pdf'}; $('projNome').textContent = '📎 ' + f.name; };
+    rd.onload = () => { PROJETO_TMP = {url: rd.result, nome: f.name, tipo:'pdf'}; PROJETO_REMOVIDO = false; $('projNome').textContent = '📎 ' + f.name; mostrarBtnRemProjeto(); };
     rd.readAsDataURL(f);
     lerMedidasPlanta(f);
   } else {
@@ -779,7 +795,9 @@ function pegarProjeto(input){
         cv.width = Math.round(im.width*prop); cv.height = Math.round(im.height*prop);
         cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
         PROJETO_TMP = {url: cv.toDataURL('image/jpeg', 0.8), nome: f.name, tipo:'img'};
+        PROJETO_REMOVIDO = false;
         $('projNome').textContent = '📎 ' + f.name;
+        mostrarBtnRemProjeto();
         // tenta ler as medidas da planta fotografada (OCR)
         $('plantaBox').style.display = 'block';
         $('plantaPecas').innerHTML = '<span class="sub">lendo a imagem (OCR)… a primeira vez pode levar até 1 minuto.</span>';
@@ -937,16 +955,17 @@ function mostrarMedidasPlanta(r){
   $('plantaPecas').innerHTML = r.pecas.map(p=>
     `• <b>${esc(p.nome)}</b> — ${f2(p.larg)} × ${f2(p.alt)}${p.qtd>1? ' × '+p.qtd+' un':''} = <b>${f2(p.m2)} m²</b>`).join('<br>') +
     `<div style="margin-top:6px; font-weight:800">Total: ${fmtNum(r.total)} m²</div>`;
-  if(!(+$('mMetragem').value > 0)){
-    $('mMetragem').value = r.total;
-    atualizarPrevisao();
-    toast('📐 Metragem puxada da planta: ' + fmtNum(r.total) + ' m².');
-  }
-  if(r.pecas.length === 1 && !(+$('mNovaM2').value > 0)){
+  // metragem do serviço SEMPRE vem do projeto (reajuste e lona nova)
+  const qtdPl = modoAtual==='LONA_NOVA'? Math.max(1, +$('mQtd').value||1) : 1;
+  $('mMetragem').value = round2(r.total * qtdPl);
+  ULT_SUG = +$('mMetragem').value;
+  if(r.pecas.length === 1){
     $('mNovaL').value = r.pecas[0].larg;
     $('mNovaC').value = r.pecas[0].alt;
     $('mNovaM2').value = round2(r.pecas[0].larg * r.pecas[0].alt);
   }
+  atualizarPrevisao();
+  toast('📐 Metragem puxada do projeto: ' + fmtNum($('mMetragem').value) + ' m².');
 }
 function usarTotalPlanta(){
   if(!PLANTA_LIDA || !PLANTA_LIDA.total){ toast('Nenhuma medida lida da planta.'); return; }
@@ -1018,7 +1037,9 @@ function usarPlantaBiblioteca(sid){
   const s = SERVICOS[sid];
   if(!s || !s.projeto){ toast('Planta não encontrada.'); return; }
   PROJETO_TMP = Object.assign({}, s.projeto);
+  PROJETO_REMOVIDO = false;
   $('projNome').textContent = '📎 ' + (s.projeto.nome || 'projeto') + ' (da biblioteca)';
+  mostrarBtnRemProjeto();
   $('bibPlantas').style.display = 'none';
   if(s.planta && s.planta.pecas && s.planta.pecas.length){
     $('plantaBox').style.display = 'block';
@@ -1243,6 +1264,7 @@ function abrirForm(id){
   desenharEquipesForm(s0? equipesDoServico(s0) : (CFG.equipes[0]? [CFG.equipes[0].id] : []));
   $('mFotoAntes').value = ''; $('mFotoDepois').value = ''; $('mProjeto').value = '';
   PLANTA_LIDA = null; $('plantaBox').style.display = 'none';
+  PROJETO_REMOVIDO = false;
   ULT_SUG = 0;
   $('mAnexos').value = '';
   $('mTitulo').textContent = id ? 'Editar serviço' : 'Novo serviço';
@@ -1275,6 +1297,7 @@ function abrirForm(id){
   $('mMotivo').value = s&&s.motivoAtraso&&s.motivoAtraso.cod||'';
   $('mMotivoTxt').value = s&&s.motivoAtraso&&s.motivoAtraso.texto||'';
   $('projNome').textContent = s&&s.projeto? '📎 '+(s.projeto.nome||'projeto anexado') : '';
+  mostrarBtnRemProjeto();
   mostrarAtraso();
   setModo(s? (s.modo||'REAJUSTE') : 'REAJUSTE', false);
   if(!s) $('mPrevisaoBox').textContent = 'Informe a metragem e o tipo para calcular a previsão.';
@@ -1338,8 +1361,8 @@ function salvarServico(){
     estoqueCriados: (antes.estoqueCriados||[]).slice(),
     qtd: modoAtual==='LONA_NOVA'? Math.max(1, +$('mQtd').value||1) : (antes.qtd||1),
     anexos: ANEXOS_TMP.slice(),
-    projeto: PROJETO_TMP || antes.projeto || null,
-    planta: PLANTA_LIDA || antes.planta || null,
+    projeto: PROJETO_REMOVIDO? null : (PROJETO_TMP || antes.projeto || null),
+    planta: PROJETO_REMOVIDO? null : (PLANTA_LIDA || antes.planta || null),
     motivoAtraso: $('mStatus').value==='CONCLUIDO'
       ? (temAtraso($('mDias').value, $('mTempoReal').value)? {cod:$('mMotivo').value, texto:$('mMotivoTxt').value.trim()} : null)
       : (antes.motivoAtraso||null),
