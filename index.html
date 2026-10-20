@@ -202,6 +202,12 @@ table.tb td{padding:8px; border-bottom:1px solid var(--line)}
       <option value="EM_ANDAMENTO">Em andamento</option>
       <option value="CONCLUIDO">Concluído</option>
     </select>
+    <select id="fCat" onchange="desenharServicos()">
+      <option value="">Todas as categorias</option>
+      <option value="LONA_NOVA">🆕 Produção nova</option>
+      <option value="MANUTENCAO">🔧 Manutenção</option>
+      <option value="REAJUSTE">🔁 Reajuste</option>
+    </select>
     <select id="fTipo" onchange="desenharServicos()"></select>
     <select id="fEquipe" onchange="desenharServicos()"></select>
     <input id="fBusca" placeholder="🔎 buscar lona ou montagem…" oninput="desenharServicos()" style="flex:1; min-width:170px">
@@ -220,6 +226,11 @@ table.tb td{padding:8px; border-bottom:1px solid var(--line)}
   </div>
   <div class="chips" id="gdChips"></div>
   <div class="filtros">
+    <select id="gdFCat" onchange="gdDesenhar()" style="border:1px solid var(--line); border-radius:9px; padding:8px 10px; font-size:13.5px; background:#fff">
+      <option value="">Todas as categorias</option>
+      <option value="PRODUCAO">🆕 Produção nova</option>
+      <option value="MANUTENCAO">🔧 Manutenção</option>
+    </select>
     <input id="gdBusca" placeholder="🔎 buscar serviço, responsável…" oninput="gdDesenhar()" style="flex:1; min-width:170px">
   </div>
   <div class="quadro">
@@ -375,6 +386,8 @@ table.tb td{padding:8px; border-bottom:1px solid var(--line)}
   <div class="panel">
     <h2>🏭 Setores — demandas finalizadas</h2>
     <div class="tbwrap"><table class="tb" id="tbGdSetores"></table></div>
+    <h2 style="margin-top:14px">🆕 Produção nova × 🔧 Manutenção</h2>
+    <div class="tbwrap"><table class="tb" id="tbCategorias"></table></div>
     <h2 style="margin-top:14px">⏰ Motivos de atraso dos setores</h2>
     <div class="tbwrap"><table class="tb" id="tbGdMotivos"></table></div>
     <h2 style="margin-top:14px">📊 Mês a mês por setor</h2>
@@ -460,8 +473,9 @@ table.tb td{padding:8px; border-bottom:1px solid var(--line)}
     <h2><span id="mTitulo">Novo serviço</span> <button class="fechar" onclick="fecharForm()">✕</button></h2>
 
     <div class="linha" style="margin-top:12px">
+      <button type="button" class="btn c" id="btnModoN" onclick="setModo('LONA_NOVA')">🆕 Produção nova</button>
+      <button type="button" class="btn c" id="btnModoM" onclick="setModo('MANUTENCAO')">🔧 Manutenção</button>
       <button type="button" class="btn p" id="btnModoR" onclick="setModo('REAJUSTE')">🔁 Reajuste / reaproveitamento</button>
-      <button type="button" class="btn c" id="btnModoN" onclick="setModo('LONA_NOVA')">🆕 Produção de lona nova</button>
     </div>
 
     <h3 style="margin-top:14px" id="mTit1">1 · Lona utilizada</h3>
@@ -477,14 +491,14 @@ table.tb td{padding:8px; border-bottom:1px solid var(--line)}
     </div>
 
     <h3 id="mTit2">2 · Reajuste e destino</h3>
-    <div class="grid g3">
+    <div class="grid g3" id="mBoxNova">
       <label class="f"><span class="lblNova">Nova medida</span> — largura (m)<input id="mNovaL" type="number" step="0.01" min="0" oninput="calcM2('Nova')"></label>
       <label class="f"><span class="lblNova">Nova medida</span> — comprimento (m)<input id="mNovaC" type="number" step="0.01" min="0" oninput="calcM2('Nova')"></label>
       <label class="f"><span class="lblNova">Nova medida</span> (m²)<input id="mNovaM2" type="number" step="0.01" min="0" oninput="sugerirMetragem()"></label>
     </div>
     <label class="f" id="mQtdBox" style="margin-top:10px; display:none">Quantidade de lonas iguais (mesmo tamanho)<input id="mQtd" type="number" min="1" step="1" value="1" oninput="sugerirMetragem()"></label>
     <div class="grid g3" style="margin-top:10px">
-      <label class="f">Montagem que será atendida *<input id="mMontagem" placeholder="ex.: Evento Casa Shopping — Tenda 8x8"></label>
+      <label class="f" id="mBoxMontagem">Montagem que será atendida *<input id="mMontagem" placeholder="ex.: Evento Casa Shopping — Tenda 8x8"></label>
       <label class="f">Data do serviço (início) *<input id="mData" type="date" onchange="atualizarPrevisao()"></label>
       <label class="f">Data da montagem (quando precisa estar pronta)<input id="mDataMontagem" type="date" onchange="atualizarPrevisao()"></label>
     </div>
@@ -626,8 +640,14 @@ table.tb td{padding:8px; border-bottom:1px solid var(--line)}
   <div class="box" style="background:#fff; border-radius:16px; padding:18px; width:100%; max-width:680px; margin:20px auto">
     <h2 style="display:flex; justify-content:space-between; align-items:center"><span id="gdTitulo">Nova demanda</span> <button class="fechar" onclick="gdFechar()">✕</button></h2>
     <div class="grid g2" style="margin-top:14px">
-      <label class="f">Setor *<select id="gdSetor"></select></label>
+      <label class="f">Setor *<select id="gdSetor" onchange="gdMudarSetorForm()"></select></label>
       <label class="f">Serviço *<input id="gdServico" placeholder="ex.: Solda portão / Lavagem easyfloor"></label>
+    </div>
+    <div id="gdBoxCat" style="display:none; margin-top:10px">
+      <div class="linha">
+        <button type="button" class="btn p" id="gdCatP" onclick="gdSetCategoria('PRODUCAO')">🆕 Produção nova</button>
+        <button type="button" class="btn c" id="gdCatM" onclick="gdSetCategoria('MANUTENCAO')">🔧 Manutenção</button>
+      </div>
     </div>
     <div class="grid g3" style="margin-top:10px">
       <label class="f">Quantidade<input id="gdQtd" type="number" step="0.01" min="0" oninput="gdPrevisao()"></label>
@@ -800,7 +820,7 @@ function desvioPrazo(s){ // + = levou mais que o previsto
 }
 function precisaAlertaReposicao(s){
   // lona desviada: aplicação prevista diferente da montagem atendida, sem reposição programada
-  if(s.modo === 'LONA_NOVA') return false;   // produção de lona nova não desvia lona de ninguém
+  if(s.modo === 'LONA_NOVA' || s.modo === 'MANUTENCAO') return false;   // produção nova e manutenção não desviam lona de ninguém
   const a = (s.aplicacao||'').trim().toUpperCase();
   const m = (s.montagem||'').trim().toUpperCase();
   if(!a || !m || a === m) return false;
@@ -1389,7 +1409,11 @@ function preencherSelectEquipes(sel, comVazio){
 }
 function calcM2(qual){
   const l = +$('m'+qual+'L').value, c = +$('m'+qual+'C').value;
-  if(l>0 && c>0){ $('m'+qual+'M2').value = round2(l*c); if(qual==='Nova') sugerirMetragem(); }
+  if(l>0 && c>0){
+    $('m'+qual+'M2').value = round2(l*c);
+    if(qual==='Nova') sugerirMetragem();
+    if(qual==='Orig' && modoAtual==='MANUTENCAO'){ $('mMetragem').value = round2(l*c); atualizarPrevisao(); }
+  }
 }
 let ULT_SUG = 0;
 function sugerirMetragem(){
@@ -1443,8 +1467,10 @@ function mostrarRepo(){
 function setModo(m, mudarTipo){
   modoAtual = m;
   const nova = m === 'LONA_NOVA';
-  $('btnModoR').className = 'btn ' + (nova? 'c':'p');
+  const manut = m === 'MANUTENCAO';
+  $('btnModoR').className = 'btn ' + (m==='REAJUSTE'? 'p':'c');
   $('btnModoN').className = 'btn ' + (nova? 'p':'c');
+  $('btnModoM').className = 'btn ' + (manut? 'p':'c');
   // lona nova: sem medida original, sem aplicação prevista e sem bloco de reposição
   $('mBoxAplicacao').style.display = nova? 'none':'flex';
   $('mBoxLonaEstoque').style.display = nova? 'none':'flex';
@@ -1458,8 +1484,36 @@ function setModo(m, mudarTipo){
   document.querySelectorAll('.lblNova').forEach(e=> e.textContent = nova? 'Medida da lona' : 'Nova medida');
   $('mLona').placeholder = nova? 'ex.: LONA PIRAMIDAL 10x10 — NOVA' : 'ex.: LONA PIRAMIDAL 10x10 — Nº 042';
   if(mudarTipo !== false && nova && (CFG.tipos||[]).some(t=>t.id==='CONFECCAO')){ $('mTipo').value = 'CONFECCAO'; }
+  // 🔧 manutenção: a lona continua com a mesma medida e a mesma aplicação — só conserta
+  $('mBoxNova').style.display = manut? 'none':'grid';
+  if(manut){
+    $('mTit1').textContent = '1 · Lona em manutenção';
+    $('mTit2').textContent = '2 · Destino (opcional)';
+    $('mTit4').style.display = 'none';
+    $('mBoxRepoChk').style.display = 'none';
+    $('mRepoPrecisa').checked = false;
+    $('mTit5').textContent = '4 · Execução (preencher quando rodar / terminar)';
+    $('mMontagem').placeholder = 'opcional — ex.: volta para o estoque';
+    if(mudarTipo !== false && (CFG.tipos||[]).some(t=>t.id==='REPARO')) $('mTipo').value = 'REPARO';
+    if(!(+$('mMetragem').value>0) && +$('mOrigM2').value>0) $('mMetragem').value = $('mOrigM2').value;
+  } else {
+    $('mMontagem').placeholder = 'ex.: Evento Casa Shopping — Tenda 8x8';
+  }
+  const rotTxt = (id, txt) => { const el = $(id); if(el && el.firstChild && el.firstChild.nodeType===3) el.firstChild.textContent = txt; };
+  rotTxt('mBoxMontagem', manut? 'Destino (opcional)' : nova? 'Montagem / destino *' : 'Montagem que será atendida *');
+  rotTxt('mBoxAplicacao', manut? 'Onde é usada (opcional)' : 'Aplicação prevista (de onde a lona veio / para que era destinada) *');
+  document.querySelectorAll('#mBoxOriginal .f').forEach((el,i)=>{
+    const rot = manut? ['Medida da lona — largura (m)','Medida da lona — comprimento (m)','Medida da lona (m²)'] : ['Medida original — largura (m)','Medida original — comprimento (m)','Medida original (m²)'];
+    if(el.firstChild && el.firstChild.nodeType===3) el.firstChild.textContent = rot[i];
+  });
   mostrarRepo();
   atualizarPrevisao();
+}
+function nomeCategoriaLona(m){ return m==='LONA_NOVA'? 'Produção nova' : m==='MANUTENCAO'? 'Manutenção' : 'Reajuste'; }
+function tagCategoriaLona(m){
+  if(m==='LONA_NOVA') return '<span class="tag roxo">🆕 Produção nova</span>';
+  if(m==='MANUTENCAO') return '<span class="tag amarelo">🔧 Manutenção</span>';
+  return '<span class="tag azul">🔁 Reajuste</span>';
 }
 function desenharSelectLonaEstoque(valor){
   const sel = $('mLonaEstoque');
@@ -1478,7 +1532,8 @@ function escolherLonaEstoque(){
   $('mLona').value = rotuloLona(l);
   if(!$('mAplicacao').value) $('mAplicacao').value = l.aplicacao || '';
   $('mOrigL').value = l.larg||''; $('mOrigC').value = l.comp||''; $('mOrigM2').value = l.m2||'';
-  toast('📦 ' + (l.codigo||l.nome) + ' amarrada no serviço — a medida dela atualiza sozinha ao concluir.');
+  if(modoAtual==='MANUTENCAO' && l.m2){ $('mMetragem').value = l.m2; atualizarPrevisao(); }
+  toast('📦 ' + (l.codigo||l.nome) + ' amarrada no serviço — ' + (modoAtual==='MANUTENCAO'? 'volta disponível sozinha quando a manutenção concluir.' : 'a medida dela atualiza sozinha ao concluir.'));
 }
 function abrirForm(id){
   editandoId = id || null;
@@ -1539,7 +1594,7 @@ function salvarServico(){
   const montagem = $('mMontagem').value.trim();
   const metragem = +$('mMetragem').value;
   if(!lona){ toast('Preencha a identificação da lona.'); return; }
-  if(!montagem){ toast('Preencha a montagem que será atendida.'); return; }
+  if(!montagem && modoAtual!=='MANUTENCAO'){ toast('Preencha a montagem que será atendida.'); return; }
   if(!(metragem>0)){ toast('Preencha a metragem total do serviço.'); return; }
   if(!$('mData').value){ toast('Preencha a data do serviço.'); return; }
   const eqs = equipesMarcadas();
@@ -1561,12 +1616,13 @@ function salvarServico(){
   const antes = SERVICOS[id] || {};
   const precisa = $('mRepoPrecisa').checked;
   const nova = modoAtual === 'LONA_NOVA';
+  const manut = modoAtual === 'MANUTENCAO';
   const s = {
     id,
     modo: modoAtual,
     lona, aplicacao: nova? '' : $('mAplicacao').value.trim(),
     origL:nova? null : +$('mOrigL').value||null, origC:nova? null : +$('mOrigC').value||null, origM2:nova? null : +$('mOrigM2').value||null,
-    novaL:+$('mNovaL').value||null, novaC:+$('mNovaC').value||null, novaM2:+$('mNovaM2').value||null,
+    novaL: manut? null : +$('mNovaL').value||null, novaC: manut? null : +$('mNovaC').value||null, novaM2: manut? null : +$('mNovaM2').value||null,
     montagem,
     data: $('mData').value,
     dataMontagem: $('mDataMontagem').value || '',
@@ -1575,7 +1631,7 @@ function salvarServico(){
     equipes: eqs,
     equipe: eqs[0],
     dias: +$('mDias').value || calcDiasPrevistos(metragem, $('mTipo').value, CFG, eqs.length),
-    repo: nova? { precisa:false, prazo:'', status:'' } : { precisa, prazo: precisa? $('mRepoPrazo').value : '', status: precisa? $('mRepoStatus').value : '' },
+    repo: (nova||manut)? { precisa:false, prazo:'', status:'' } : { precisa, prazo: precisa? $('mRepoPrazo').value : '', status: precisa? $('mRepoStatus').value : '' },
     status: $('mStatus').value,
     fim: $('mFim').value || '',
     tempoReal: +$('mTempoReal').value || null,
@@ -1611,7 +1667,7 @@ function salvarServico(){
   {
     const tl = (antes.timeline||[]).slice();
     const ev = t => tl.push({em: new Date().toISOString(), texto: t});
-    if(!antes.id) ev('serviço criado' + (s.modo==='LONA_NOVA'? ' (produção de lona nova)' : ''));
+    if(!antes.id) ev('serviço criado — ' + nomeCategoriaLona(s.modo));
     else {
       if(antes.status !== s.status) ev(s.status==='CONCLUIDO'? 'concluído' + (+s.tempoReal>0? ' — '+fmtNum(s.tempoReal)+' dia(s) utilizados':'') : s.status==='EM_ANDAMENTO'? 'entrou em andamento' : 'voltou para programado');
       if((+antes.metragem||0) !== (+s.metragem||0)) ev('metragem: ' + fmtNum(antes.metragem||0) + ' → ' + fmtNum(s.metragem) + ' m²');
@@ -1636,6 +1692,15 @@ function salvarServico(){
     }
   }
   repoOrigemPend = null;
+  // ✅ tarefa automática da lona
+  {
+    const prazoT = s.dataMontagem || dataFimPrevista(s.data, +s.dias||0, CFG) || '';
+    const eqNome = ((CFG.equipes||[]).find(e=>e.id===(equipesDoServico(s)[0]))||{}).nome || '';
+    const txtT = '🟧 ' + s.lona + (s.montagem? ' — ' + s.montagem : '');
+    if(!antes.id) criarTarefaOrigem(s.id, txtT, eqNome, prazoT);
+    else sincronizarTarefaOrigem(s.id, s.status==='CONCLUIDO', prazoT, txtT, eqNome);
+    if(s.status==='CONCLUIDO') sincronizarTarefaOrigem(s.id, true, prazoT, txtT, eqNome);
+  }
   // reajuste digitado na mão: oferece cadastrar a lona para rastrear
   if(s.modo !== 'LONA_NOVA' && !antes.id && !s.estoqueId){
     if(confirm('Essa lona não está no estoque. Cadastrar agora com código de rastreamento (LP)?\nAssim toda mexida nela fica registrada.')){
@@ -1708,6 +1773,7 @@ function excluirServico(){
   const s = SERVICOS[editandoId]; if(!s) return;
   s.excluido = {em: new Date().toISOString()};
   s.atualizadoEm = new Date().toISOString();
+  excluirTarefaOrigem(s.id);
   salvarLocal(); nuvemSalvarServico(s);
   fecharForm(); desenharTudo();
   toast('🗑 Serviço na lixeira — restaura na aba 🗑 Lixeira se precisar.');
@@ -1741,7 +1807,7 @@ function verHistorico(id){
   $('histTitulo').textContent = '📜 ' + s.lona;
   $('histResumo').innerHTML = 'Esta lona já passou por <b>' + lista.length + '</b> serviço(s).';
   $('histCorpo').innerHTML = lista.map(x=>`<div class="fila-item">
-      <span><b>${fmtData(x.data)}</b> · ${esc(nomeTipo(x.tipo))} ${x.modo==='LONA_NOVA'?'<span class="tag roxo">🆕 lona nova</span>':''}<br>
+      <span><b>${fmtData(x.data)}</b> · ${esc(nomeTipo(x.tipo))} ${tagCategoriaLona(x.modo)}<br>
       <small class="sub">${x.origM2? fmtNum(x.origM2)+' m² → ':''}${x.novaM2? fmtNum(x.novaM2)+' m²' : fmtNum(x.metragem)+' m²'} · ${esc(x.montagem||'—')} · ${esc(nomesEquipes(x))}${x.tempoReal? ' · levou '+fmtNum(x.tempoReal)+' dia(s)':''}</small></span>
       <span class="per">${x.status==='CONCLUIDO'?'✔':x.status==='EM_ANDAMENTO'?'▶':'●'}</span>
     </div>`).join('');
@@ -1896,7 +1962,7 @@ function fichaLona(id){
   $('histCorpo').innerHTML =
     (gen? `<div style="background:var(--laranja3); border-radius:10px; padding:10px 12px; margin-bottom:10px; font-size:14px"><b>📐 Vida da lona:</b><br>${gen}</div>` : '') +
     (servs.length? '<h3 style="margin:8px 0 4px">🔧 Serviços nesta lona</h3>' + servs.map(s=>`<div class="fila-item">
-        <span><b>${fmtData(s.data)}</b> · ${esc(nomeTipo(s.tipo))}${s.modo==='LONA_NOVA'? ' 🆕':''}<br><small class="sub">${esc(s.montagem||'—')}${+s.novaM2>0? ' · virou '+fmtNum(s.novaM2)+' m²':''}${s.tempoReal? ' · '+fmtNum(s.tempoReal)+' dia(s)':''}</small></span>
+        <span><b>${fmtData(s.data)}</b> · ${esc(nomeTipo(s.tipo))}${s.modo==='LONA_NOVA'? ' 🆕' : s.modo==='MANUTENCAO'? ' 🔧' : ''}<br><small class="sub">${esc(s.montagem||'—')}${+s.novaM2>0? ' · virou '+fmtNum(s.novaM2)+' m²':''}${s.tempoReal? ' · '+fmtNum(s.tempoReal)+' dia(s)':''}</small></span>
         <span class="per">${s.status==='CONCLUIDO'?'✔':s.status==='EM_ANDAMENTO'?'▶':'●'}</span>
       </div>`).join('') : '') +
     '<h3 style="margin:12px 0 4px">🕒 Movimentações</h3>' +
@@ -1932,15 +1998,19 @@ function restaurarLona(id){
   mudarSituacaoLona(l, 'DISPONIVEL', 'voltou ao estoque (baixa desfeita)');
   salvarLocal(); desenharTudo();
 }
-function mandarLonaParaServico(id){
+function mandarLonaParaServico(id, modo){
   const l = LONAS[id]; if(!l) return;
   abrirForm();
+  if(modo) setModo(modo);
   estoquePendId = id;
   $('mLonaEstoque').value = id;
   $('mLona').value = rotuloLona(l);
   $('mAplicacao').value = l.aplicacao || l.local || '';
   $('mOrigL').value = l.larg||''; $('mOrigC').value = l.comp||''; $('mOrigM2').value = l.m2||'';
-  if((CFG.tipos||[]).some(t=>t.id==='REAJUSTE')) $('mTipo').value = 'REAJUSTE';
+  if(modo==='MANUTENCAO'){
+    if((CFG.tipos||[]).some(t=>t.id==='REPARO')) $('mTipo').value = 'REPARO';
+    if(l.m2) $('mMetragem').value = l.m2;
+  } else if((CFG.tipos||[]).some(t=>t.id==='REAJUSTE')) $('mTipo').value = 'REAJUSTE';
   atualizarPrevisao();
   toast('Preencha o serviço e salve — a lona sai do estoque para a vulcanização e volta sozinha quando concluir.');
 }
@@ -2025,7 +2095,8 @@ function desenharEstoque(){
       ${movs? `<div style="margin-top:8px; border-top:1px dashed var(--line); padding-top:6px">${movs}</div>`:''}
       <div class="acoes">
         ${l.situacao==='DISPONIVEL'? `<button class="btn p mini" onclick="saidaMontagem('${l.id}')">➡ Saída p/ montagem</button>
-        <button class="btn c mini" onclick="mandarLonaParaServico('${l.id}')">🔧 Mandar p/ serviço</button>`:''}
+        <button class="btn c mini" onclick="mandarLonaParaServico('${l.id}','MANUTENCAO')">🔧 Manutenção</button>
+        <button class="btn c mini" onclick="mandarLonaParaServico('${l.id}','REAJUSTE')">🔁 Reajuste</button>`:''}
         ${l.situacao==='EM_USO'? `<button class="btn v mini" onclick="retornoLona('${l.id}')">↩ Retornou ao estoque</button>`:''}
         ${l.situacao==='EM_SERVICO'&&servAberto? `<button class="btn c mini" onclick="abrirForm('${servAberto.id}')">🔧 Abrir o serviço</button>`:''}
         ${l.situacao==='BAIXADA'? `<button class="btn c mini" onclick="restaurarLona('${l.id}')">↩ Voltar ao estoque</button>`:''}
@@ -2082,6 +2153,7 @@ function desenharServicos(){
   const lista = listaOrdenada().filter(s=>{
     if($('fStatus').value && s.status !== $('fStatus').value) return false;
     if($('fTipo').value && s.tipo !== $('fTipo').value) return false;
+    if($('fCat').value && (s.modo||'REAJUSTE') !== $('fCat').value) return false;
     if($('fEquipe').value && !equipesDoServico(s).includes($('fEquipe').value)) return false;
     const q = $('fBusca').value.trim().toUpperCase();
     if(q && !((s.lona||'')+' '+(s.montagem||'')+' '+(s.aplicacao||'')).toUpperCase().includes(q)) return false;
@@ -2120,7 +2192,7 @@ function desenharServicos(){
           <div class="nome">${esc(s.lona)}</div>
           <small class="sub">${esc(nomeTipo(s.tipo))} · ${fmtNum(s.metragem)} m² · ${esc(nomesEquipes(s))}${equipesDoServico(s).length>1? ' (juntas)':''}</small>
         </div>
-        <div>${s.modo==='LONA_NOVA'? '<span class="tag roxo">🆕 Lona nova</span> ':''}${tagStatus(s.status)}</div>
+        <div>${tagCategoriaLona(s.modo)} ${tagStatus(s.status)}</div>
       </div>
       <div class="det">
         ${s.modo==='LONA_NOVA'? `
@@ -2128,7 +2200,7 @@ function desenharServicos(){
         <div><b>Medida original</b>${s.origM2? fmtNum(s.origM2)+' m²'+(s.origL&&s.origC? ' ('+fmtNum(s.origL)+'×'+fmtNum(s.origC)+')':'') : '—'}</div>
         <div><b>Nova medida</b>${s.novaM2? fmtNum(s.novaM2)+' m²'+(s.novaL&&s.novaC? ' ('+fmtNum(s.novaL)+'×'+fmtNum(s.novaC)+')':'') : '—'}</div>
         <div><b>Aplicação prevista</b>${esc(s.aplicacao||'—')}</div>`}
-        <div><b>${s.modo==='LONA_NOVA'? 'Montagem / destino':'Montagem atendida'}</b>${esc(s.montagem||'—')}</div>
+        <div><b>${s.modo==='LONA_NOVA'? 'Montagem / destino' : s.modo==='MANUTENCAO'? 'Destino' : 'Montagem atendida'}</b>${esc(s.montagem||'—')}</div>
         <div><b>Data do serviço</b>${fmtData(s.data)}</div>
         ${s.dataMontagem? `<div><b>Data da montagem</b>${fmtData(s.dataMontagem)}</div>`:''}
         <div><b>Previsão</b>${fmtNum(s.dias)} dia(s) — até ${fmtData(fimPrev)}</div>
@@ -2334,7 +2406,7 @@ function desenharCalendario(){
     let passos = 0;
     while(d <= dfim && passos < 62){
       const iso = d.toISOString().slice(0,10);
-      if(iso.slice(0,7) === CAL_MES) add(iso, `<button class="ev ${cls}" onclick="abrirForm('${s.id}')" title="${esc(s.lona)}">${s.modo==='LONA_NOVA'? '🆕 ':''}${esc(s.lona)}</button>`);
+      if(iso.slice(0,7) === CAL_MES) add(iso, `<button class="ev ${cls}" onclick="abrirForm('${s.id}')" title="${esc(s.lona)}">${s.modo==='LONA_NOVA'? '🆕 ' : s.modo==='MANUTENCAO'? '🔧 ' : ''}${esc(s.lona)}</button>`);
       d.setDate(d.getDate()+1); passos++;
     }
     if(s.dataMontagem && s.dataMontagem.slice(0,7) === CAL_MES)
@@ -2480,7 +2552,7 @@ function fichaEventoHTML(ev, impressao){
   const real = lista.filter(s=>s.status==='CONCLUIDO').reduce((t,s)=>t+(+s.tempoReal||0),0);
   const nConcl = lista.filter(s=>s.status==='CONCLUIDO').length;
   const linhas = lista.map(s=>`<tr>
-    <td><b>${esc(s.lona)}</b>${s.modo==='LONA_NOVA'? ' 🆕':''}</td>
+    <td><b>${esc(s.lona)}</b>${s.modo==='LONA_NOVA'? ' 🆕' : s.modo==='MANUTENCAO'? ' 🔧' : ''}</td>
     <td>${esc(nomeTipo(s.tipo))}</td>
     <td>${s.novaM2? fmtNum(s.novaM2)+' m²'+(s.novaL&&s.novaC? ' ('+fmtNum(s.novaL)+'×'+fmtNum(s.novaC)+')':'') : fmtNum(s.metragem)+' m²'}</td>
     <td>${fmtData(s.data)}</td>
@@ -2676,6 +2748,25 @@ function gdAtrasou(d){
   return (d.fimReal||d.fimPrev) > d.fimPrev;
 }
 function materiais(){ return Object.values(GD).filter(x=>x.tipo==='MATERIAL' && !x.excluido); }
+const GD_SETORES_COM_CATEGORIA = ['SERRALH'];
+let gdCategoriaAtual = 'PRODUCAO';
+function gdTemCategoria(setorId){ return GD_SETORES_COM_CATEGORIA.includes(setorId); }
+function gdSetCategoria(c){
+  gdCategoriaAtual = c;
+  $('gdCatP').className = 'btn ' + (c==='PRODUCAO'? 'p':'c');
+  $('gdCatM').className = 'btn ' + (c==='MANUTENCAO'? 'p':'c');
+}
+function gdMudarSetorForm(){
+  $('gdBoxCat').style.display = gdTemCategoria($('gdSetor').value)? 'block':'none';
+  gdPrevisao();
+  $('gdQualidade').innerHTML = '';
+  gdMostrarExtras();
+}
+function gdTagCategoria(d){
+  if(!gdTemCategoria(d.setor) || !d.categoria) return '';
+  return d.categoria==='MANUTENCAO'? '<span class="tag amarelo">🔧 Manutenção</span>' : '<span class="tag roxo">🆕 Produção nova</span>';
+}
+function gdNomeCategoria(c){ return c==='MANUTENCAO'? 'Manutenção' : c==='PRODUCAO'? 'Produção nova' : ''; }
 function gdSetorDe(id){ return (GDCFG.setores||[]).find(s=>s.id===id) || {nome:id||'—', cor:'#6b7794'}; }
 function gdDemandas(){ return Object.values(GD).filter(x=>x.tipo==='DEMANDA' && !x.excluido && x.setor!=='LONAS'); }
 function gdTarefas(){ return Object.values(GD).filter(x=>x.tipo==='TAREFA' && !x.excluido); }
@@ -2843,6 +2934,8 @@ function gdAbrir(id){
   $('gdQualidade').innerHTML = '';
   GD_ETAPAS = d&&d.etapas? d.etapas.map(e=>Object.assign({}, e)) : [];
   gdDesenharEtapas();
+  gdSetCategoria(d&&d.categoria || 'PRODUCAO');
+  $('gdBoxCat').style.display = gdTemCategoria($('gdSetor').value)? 'block':'none';
   gdPrevisao();
   gdMostrarExtras();
   $('gdModal').style.display = 'flex';
@@ -2870,6 +2963,7 @@ function gdSalvar(){
     id, tipo:'DEMANDA',
     codigo: antes.codigo || gdProximoCodigo($('gdSetor').value),
     setor: $('gdSetor').value,
+    categoria: gdTemCategoria($('gdSetor').value)? gdCategoriaAtual : '',
     servico,
     qtd: +$('gdQtd').value||null,
     unidade: $('gdUnidade').value,
@@ -2903,6 +2997,12 @@ function gdSalvar(){
   }
   GD[id] = d;
   gdMaterialSync(d);
+  {
+    const txtT = (d.codigo? d.codigo + ' · ' : '') + (d.categoria==='MANUTENCAO'? '🔧 ' : d.categoria==='PRODUCAO'? '🆕 ' : '') + d.servico + (d.destino? ' — ' + d.destino : '');
+    if(!antes.id) criarTarefaOrigem(d.id, txtT, d.resp, d.fimPrev);
+    else sincronizarTarefaOrigem(d.id, d.status==='FIM', d.fimPrev, txtT, d.resp);
+    if(d.status==='FIM') sincronizarTarefaOrigem(d.id, true, d.fimPrev, txtT, d.resp);
+  }
   gdSalvarLocal(); gdNuvemSalvar(d);
   gdFechar(); desenharTudo();
   toast('✅ Demanda salva.');
@@ -2947,7 +3047,7 @@ function gdImprimirOS(id){
     .et{margin-top:14px; font-size:13.5px} .et div{padding:5px 0}
     .ass{margin-top:44px; display:flex; gap:40px} .ass div{flex:1; border-top:1px solid #1c2740; text-align:center; padding-top:5px; font-size:12px}</style></head><body>
     <h1>GESTÃO DE <span>SERVIÇOS</span> — Grupo Tendas Plenart</h1>
-    <div class="os">${esc(d.codigo||'OS')} · ${esc(st.nome)}</div>
+    <div class="os">${esc(d.codigo||'OS')} · ${esc(st.nome)}${d.categoria? ' · '+esc(gdNomeCategoria(d.categoria)) : ''}</div>
     <table>
       <tr><td colspan="2"><b>Serviço</b>${esc(d.servico)}</td></tr>
       <tr><td><b>Quantidade</b>${d.qtd? fmtNum(d.qtd)+' '+esc(d.unidade||''):'—'}</td><td><b>Para</b>${esc(d.destino||'—')}</td></tr>
@@ -2967,6 +3067,7 @@ function gdExcluir(){
   const d = GD[gdEditando]; if(!d) return;
   d.excluido = {em:new Date().toISOString()};
   d.atualizadoEm = new Date().toISOString();
+  excluirTarefaOrigem(d.id);
   gdSalvarLocal(); gdNuvemSalvar(d);
   gdFechar(); desenharTudo();
   toast('🗑 Na lixeira — restaura na aba 🗑 Lixeira.');
@@ -3004,6 +3105,7 @@ function gdMudarStatus(id, st){
   if(st!=='FIM') d.fimReal='';
   d.timeline = (d.timeline||[]).concat([{em:new Date().toISOString(), texto: st==='FIM'? 'finalizada' : st==='EXEC'? 'entrou em execução' : 'voltou para a fila'}]).slice(-20);
   d.atualizadoEm = new Date().toISOString();
+  sincronizarTarefaOrigem(d.id, st==='FIM');
   gdMaterialSync(d);
   gdSalvarLocal(); gdNuvemSalvar(d); desenharTudo();
   toast(st==='EXEC'? '▶ Em execução.' : st==='FIM'? '✔ Finalizada!' : '● De volta para a fila.');
@@ -3015,7 +3117,7 @@ function gdCard(d){
   const prog = gdProgresso(d);
   return `<div class="card-d" style="border-left-color:${st.cor}">
     <div class="linha" style="justify-content:space-between; gap:6px">
-      <span class="tag" style="background:${st.cor}22; color:${st.cor}">${esc(st.nome)}</span>
+      <span><span class="tag" style="background:${st.cor}22; color:${st.cor}">${esc(st.nome)}</span> ${gdTagCategoria(d)}</span>
       ${d.status==='FIM'? (gdNoPrazo(d)? '<span class="tag verde">✔ no prazo</span>':'<span class="tag verm">✔ com atraso</span>') : atr? '<span class="tag verm">⏰ atrasada</span>' : d.fimPrev===hj? '<span class="tag amarelo">vence hoje</span>':''}
     </div>
     <div class="nome" style="margin-top:6px">${d.prioridade!=null? '⭐ ':''}${d.codigo? '<span class="tag cinza" style="margin-right:5px">'+esc(d.codigo)+'</span>':''}${esc(d.servico)}</div>
@@ -3053,6 +3155,7 @@ function gdDesenhar(){
   const q = ($('gdBusca').value||'').trim().toUpperCase();
   const lista = gdDemandas().filter(d=>{
     if(gdFiltroSetor && d.setor!==gdFiltroSetor) return false;
+    if($('gdFCat').value && d.categoria !== $('gdFCat').value) return false;
     if(q && !((d.servico||'')+' '+(d.resp||'')+' '+(d.exec||'')+' '+(d.destino||'')).toUpperCase().includes(q)) return false;
     return true;
   });
@@ -3191,7 +3294,7 @@ function przDesenhar(){
   const linhaD = d => {
     const st = gdSetorDe(d.setor);
     return `<div class="fila-item" style="cursor:pointer" onclick="irAba('demandas'); gdAbrir('${d.id}')">
-      <span><span class="tag" style="background:${st.cor}22; color:${st.cor}">${esc(st.nome)}</span> <b>${esc(d.servico)}</b><br><small class="sub">${d.codigo? d.codigo+' · ':''}${d.resp? '👤 '+esc(d.resp)+' · ':''}${d.status==='EXEC'?'▶ em execução':'● a fazer'}</small></span>
+      <span><span class="tag" style="background:${st.cor}22; color:${st.cor}">${esc(st.nome)}</span> ${gdTagCategoria(d)} <b>${esc(d.servico)}</b><br><small class="sub">${d.codigo? d.codigo+' · ':''}${d.resp? '👤 '+esc(d.resp)+' · ':''}${d.status==='EXEC'?'▶ em execução':'● a fazer'}</small></span>
       <span class="per">${fmtData(d.fimPrev)}</span></div>`;
   };
   // lonas: serviços que não vão dar tempo + reposições pendentes
@@ -3248,9 +3351,40 @@ function gdRemoverSetor(id){
 }
 
 /* ---------- RELATÓRIO DOS SETORES ---------- */
+function relCategorias(mes){
+  if(!$('tbCategorias')) return;
+  const linhas = [];
+  // lonas
+  const lc = listaOrdenada().filter(s=> s.status==='CONCLUIDO' && (!mes || (s.data||'').startsWith(mes) || (s.fim||'').startsWith(mes)));
+  [['LONA_NOVA','🆕 Produção nova'],['MANUTENCAO','🔧 Manutenção'],['REAJUSTE','🔁 Reajuste']].forEach(([m,rot])=>{
+    const ls = lc.filter(s=>(s.modo||'REAJUSTE')===m);
+    if(!ls.length) return;
+    const m2 = ls.reduce((t,s)=>t+(+s.metragem||0),0);
+    const ct = ls.filter(s=>+s.tempoReal>0);
+    const m2t = ct.reduce((t,s)=>t+(+s.metragem||0),0), dt = ct.reduce((t,s)=>t+(+s.tempoReal||0),0);
+    linhas.push(`<tr><td><b style="color:var(--laranja)">Lonas</b></td><td>${rot}</td><td>${ls.length}</td><td>${fmtNum(m2)} m²</td><td><b>${dt>0? fmtNum(Math.round(m2t/dt*10)/10)+' m²/dia' : '—'}</b></td></tr>`);
+  });
+  // setores com categoria
+  GD_SETORES_COM_CATEGORIA.forEach(sid=>{
+    const st = gdSetorDe(sid);
+    const ds = gdDemandas().filter(d=> d.setor===sid && d.status==='FIM' && (!mes || (d.fimReal||'').startsWith(mes)));
+    [['PRODUCAO','🆕 Produção nova'],['MANUTENCAO','🔧 Manutenção']].forEach(([c,rot])=>{
+      const xs = ds.filter(d=>(d.categoria||'PRODUCAO')===c);
+      if(!xs.length) return;
+      const qt = {};
+      xs.forEach(d=>{ if(d.qtd){ const u=d.unidade||'un'; qt[u]=(qt[u]||0)+d.qtd; } });
+      const ct = xs.filter(d=>+d.tempoReal>0 && +d.qtd>0);
+      const q = ct.reduce((t,d)=>t+d.qtd,0), dt = ct.reduce((t,d)=>t+d.tempoReal,0);
+      linhas.push(`<tr><td><b style="color:${st.cor}">${esc(st.nome)}</b></td><td>${rot}</td><td>${xs.length}</td><td>${Object.keys(qt).map(u=>fmtNum(qt[u])+' '+esc(u)).join(' · ')||'—'}</td><td><b>${dt>0? fmtNum(Math.round(q/dt*10)/10)+' '+esc(ct[0].unidade||'')+'/dia' : '—'}</b></td></tr>`);
+    });
+  });
+  $('tbCategorias').innerHTML = '<tr><th>Setor</th><th>Categoria</th><th>Concluídos</th><th>Produção</th><th>Produtividade</th></tr>' +
+    (linhas.join('') || '<tr><td colspan="5" class="vazio">Nada concluído ainda.</td></tr>');
+}
 function gdRelatorio(){
   if(!$('tbGdSetores')) return;
   const mes = $('relMes').value;
+  relCategorias(mes);
   const fim = gdDemandas().filter(d=>d.status==='FIM').filter(d=> !mes || (d.fimReal||'').startsWith(mes));
   $('tbGdSetores').innerHTML = '<tr><th>Setor</th><th>Finalizadas</th><th>No prazo</th><th>Produção</th><th>Produtividade</th></tr>' +
     ((GDCFG.setores||[]).map(st=>{
@@ -3288,6 +3422,37 @@ function gdRelatorio(){
     return `<div class="fila-item"><span style="min-width:56px; font-weight:800">${mm}/${aa.slice(2)}</span><span style="display:flex; gap:6px; flex-wrap:wrap">${partes}</span></div>`;
   }).join('') || '<div class="vazio">Ainda sem mês com demanda finalizada.</div>';
 }
+/* ---------- TAREFA AUTOMÁTICA (toda lona e demanda viram tarefa) ---------- */
+function tarefaDeOrigem(origemId){ return Object.values(GD).find(x=>x.tipo==='TAREFA' && x.origemId===origemId); }
+function criarTarefaOrigem(origemId, texto, resp, prazo){
+  if(tarefaDeOrigem(origemId)) return;
+  const x = {id:'tf_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6), tipo:'TAREFA',
+    texto, resp:resp||'', prazo:prazo||'', feita:false, origemId,
+    criadoEm:new Date().toISOString(), atualizadoEm:new Date().toISOString()};
+  GD[x.id] = x;
+  gdSalvarLocal(); gdNuvemSalvar(x);
+}
+function sincronizarTarefaOrigem(origemId, feita, prazo, texto, resp){
+  const t = tarefaDeOrigem(origemId); if(!t) return;
+  let mudou = false;
+  if(t.feita !== feita){ t.feita = feita; t.feitaEm = feita? hoje() : ''; mudou = true; }
+  if(prazo && t.prazo !== prazo){ t.prazo = prazo; mudou = true; }
+  if(texto && t.texto !== texto){ t.texto = texto; mudou = true; }
+  if(resp && t.resp !== resp){ t.resp = resp; mudou = true; }
+  if(t.excluido){ delete t.excluido; mudou = true; }
+  if(mudou){ t.atualizadoEm = new Date().toISOString(); gdSalvarLocal(); gdNuvemSalvar(t); }
+}
+function excluirTarefaOrigem(origemId){
+  const t = tarefaDeOrigem(origemId); if(!t || t.excluido) return;
+  t.excluido = {em:new Date().toISOString()};
+  t.atualizadoEm = new Date().toISOString();
+  gdSalvarLocal(); gdNuvemSalvar(t);
+}
+function abrirOrigemTarefa(origemId){
+  if(SERVICOS[origemId]){ irAba('servicos'); abrirForm(origemId); }
+  else if(GD[origemId]){ irAba('demandas'); gdAbrir(origemId); }
+  else toast('A origem dessa tarefa não está mais aqui.');
+}
 function gtAdd(){
   const t = $('gtTexto').value.trim();
   if(!t){ toast('Escreva a tarefa.'); return; }
@@ -3317,7 +3482,8 @@ function gtDesenhar(){
   const lista = gdTarefas().sort((a,b)=> (a.feita?1:0)-(b.feita?1:0) || (a.prazo||'9999').localeCompare(b.prazo||'9999') || (b.criadoEm||'').localeCompare(a.criadoEm||''));
   $('gtLista').innerHTML = lista.map(t=>`<div class="tarefa ${t.feita?'feita':''}">
       <input type="checkbox" ${t.feita?'checked':''} onchange="gtMarcar('${t.id}', this.checked)">
-      <span class="tx" style="flex:1"><b>${esc(t.texto)}</b><br><small class="sub">${t.resp? '👤 '+esc(t.resp)+' · ':''}${t.prazo? (t.prazo<hj&&!t.feita? '<span style="color:var(--verm); font-weight:700">prazo '+fmtData(t.prazo)+' ⏰</span>' : 'prazo '+fmtData(t.prazo)) : 'sem prazo'}${t.feita&&t.feitaEm? ' · feita em '+fmtData(t.feitaEm):''}</small></span>
+      <span class="tx" style="flex:1"><b>${esc(t.texto)}</b>${t.origemId? ' <span class="tag cinza">auto</span>':''}<br><small class="sub">${t.resp? '👤 '+esc(t.resp)+' · ':''}${t.prazo? (t.prazo<hj&&!t.feita? '<span style="color:var(--verm); font-weight:700">prazo '+fmtData(t.prazo)+' ⏰</span>' : 'prazo '+fmtData(t.prazo)) : 'sem prazo'}${t.feita&&t.feitaEm? ' · feita em '+fmtData(t.feitaEm):''}</small></span>
+      ${t.origemId? `<button class="btn c mini" onclick="abrirOrigemTarefa('${t.origemId}')">abrir ›</button>`:''}
       <button class="btn d mini" onclick="gtExcluir('${t.id}')">✕</button>
     </div>`).join('') || '<div class="vazio">Nenhuma tarefa. Adicione a primeira ali em cima.</div>';
   const nTf = gdTarefas().filter(t=>!t.feita).length;
