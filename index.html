@@ -2813,6 +2813,7 @@ async function gdNuvemCarregar(){
         gdSalvarLocal(); desenharTudo();
       })
       .subscribe();
+    garantirTarefasAuto();
     desenharTudo();
   }catch(e){ console.warn('gd nuvem', e); }
 }
@@ -3426,11 +3427,33 @@ function gdRelatorio(){
 function tarefaDeOrigem(origemId){ return Object.values(GD).find(x=>x.tipo==='TAREFA' && x.origemId===origemId); }
 function criarTarefaOrigem(origemId, texto, resp, prazo){
   if(tarefaDeOrigem(origemId)) return;
-  const x = {id:'tf_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6), tipo:'TAREFA',
+  const x = {id:'tf_auto_' + origemId, tipo:'TAREFA',
     texto, resp:resp||'', prazo:prazo||'', feita:false, origemId,
     criadoEm:new Date().toISOString(), atualizadoEm:new Date().toISOString()};
   GD[x.id] = x;
   gdSalvarLocal(); gdNuvemSalvar(x);
+}
+function textoTarefaLona(s){ return '🟧 ' + s.lona + (s.montagem? ' — ' + s.montagem : ''); }
+function prazoTarefaLona(s){ return s.dataMontagem || dataFimPrevista(s.data, +s.dias||0, CFG) || ''; }
+function respTarefaLona(s){ return ((CFG.equipes||[]).find(e=>e.id===(equipesDoServico(s)[0]))||{}).nome || ''; }
+function textoTarefaDemanda(d){ return (d.codigo? d.codigo + ' · ' : '') + (d.categoria==='MANUTENCAO'? '🔧 ' : d.categoria==='PRODUCAO'? '🆕 ' : '') + d.servico + (d.destino? ' — ' + d.destino : ''); }
+function garantirTarefasAuto(){
+  // 1) lona ou demanda em aberto sem tarefa → cria
+  listaOrdenada().filter(s=>s.status!=='CONCLUIDO').forEach(s=>{
+    if(!tarefaDeOrigem(s.id)) criarTarefaOrigem(s.id, textoTarefaLona(s), respTarefaLona(s), prazoTarefaLona(s));
+  });
+  gdDemandas().filter(d=>d.status!=='FIM').forEach(d=>{
+    if(!tarefaDeOrigem(d.id)) criarTarefaOrigem(d.id, textoTarefaDemanda(d), d.resp, d.fimPrev);
+  });
+  // 2) tarefa automática acompanha a origem (concluiu → feita · foi pra lixeira → vai junto)
+  Object.values(GD).filter(t=>t.tipo==='TAREFA' && t.origemId && !t.excluido).forEach(t=>{
+    const s = SERVICOS[t.origemId], d = GD[t.origemId];
+    const origem = s || d;
+    if(!origem) return;
+    if(origem.excluido){ excluirTarefaOrigem(t.origemId); return; }
+    const feita = s? s.status==='CONCLUIDO' : d.status==='FIM';
+    if(!!t.feita !== feita) sincronizarTarefaOrigem(t.origemId, feita);
+  });
 }
 function sincronizarTarefaOrigem(origemId, feita, prazo, texto, resp){
   const t = tarefaDeOrigem(origemId); if(!t) return;
@@ -3496,6 +3519,7 @@ carregarLocal();
 gdCarregarLocal();
 gdGarantirCodigos();
 garantirCodigos();
+garantirTarefasAuto();
 desenharTudo();
 nuvemIniciar();
 /* aplicativo instalável (PWA): guarda a página no aparelho e funciona sem internet */
