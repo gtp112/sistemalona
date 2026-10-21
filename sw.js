@@ -1,6 +1,6 @@
 /* Reajuste de Lonas — Plenart · aplicativo instalável (v2.0)
    Guarda a página e os arquivos no aparelho para abrir mesmo sem internet. */
-const CACHE = 'gestao-servicos-v3-1';
+const CACHE = 'gestao-servicos-v3-2';
 const BASE = ['./', 'GESTAO_SERVICOS.html', 'manifest.json', 'icone-192.png', 'icone-512.png'];
 
 self.addEventListener('install', e => {
