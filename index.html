@@ -1654,11 +1654,7 @@ function salvarServico(){
     const itens = [...document.querySelectorAll('#mQualidade input')];
     if(itens.some(i=>!i.checked)){ toast('✅ Marque todos os itens do checklist de qualidade para concluir.'); return; }
   }
-  if($('mStatus').value==='CONCLUIDO' && !(+$('mTempoReal').value > 0)){
-    toast('⏱ Para concluir, informe o TEMPO UTILIZADO (dias) — é ele que dá a sua produção e produtividade no relatório.');
-    try{ $('mTempoReal').focus(); }catch(e){}
-    return;
-  }
+  if($('mStatus').value==='CONCLUIDO' && !(+$('mTempoReal').value > 0)) autoTempoLona();
   if($('mStatus').value==='CONCLUIDO' && temAtraso($('mDias').value, $('mTempoReal').value) && !$('mMotivo').value){
     mostrarAtraso();
     toast('⏰ Concluiu acima do previsto — escolha o motivo do atraso.'); return;
@@ -3025,7 +3021,7 @@ function gdSalvar(){
   if(!$('gdFimPrev').value){ toast('Preencha o término previsto.'); return; }
   const stCfg = gdSetorDe($('gdSetor').value);
   if($('gdStatus').value==='FIM'){
-    if(!(+$('gdTempoReal').value>0)){ toast('⏱ Para finalizar, informe o TEMPO UTILIZADO (dias).'); gdMostrarExtras(); return; }
+    if(!(+$('gdTempoReal').value>0)) gdAutoTempo();
     if((stCfg.checklist||[]).length){
       gdMostrarExtras();
       const itens = [...document.querySelectorAll('#gdQualidade input')];
